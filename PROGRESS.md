@@ -485,5 +485,6 @@ switching code.
   (`c74de0a..99a5fe8`), review fixes included in the same commit.
 - Base before this work: `7be5f65`.
 
-- Phase 4: commit recorded below once made; both review rounds' fixes included,
-  along with `todo.md` (the user's phase-4 line) and the two review transcripts.
+- Phase 4: commit `3866f37` on `main`, pushed to `origin` successfully
+  (`c82ba48..3866f37`). Both review rounds' fixes included, along with `todo.md`
+  (the user's phase-4 line) and the two review transcripts. Tree clean.
