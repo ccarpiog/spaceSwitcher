@@ -42,10 +42,13 @@ final class SettingsWindowController {
         let window = self.window ?? makeWindow()
         self.window = window
 
-        // Asked for here as well as from the view's `onAppear`: the window is kept
+        // Asked for here as well as from the views' `onAppear`: the window is kept
         // alive between showings, so a second `show()` re-orders a view hierarchy
-        // that never went away and never appears again.
+        // that never went away and never appears again. The Spaces list matters
+        // more than most — it is exactly the kind of thing that changes while the
+        // window is closed.
         LoginItemController.shared.refresh()
+        SpacesSettingsModel.shared.refresh()
 
         // Activating is not optional. The app is `.accessory`, so ordering a window
         // front without activating leaves it drawn but unable to become key — the
@@ -74,7 +77,8 @@ final class SettingsWindowController {
         window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         window.contentView = NSHostingView(rootView: SettingsView(preferences: .shared,
                                                                   hotKeys: .shared,
-                                                                  loginItem: .shared))
+                                                                  loginItem: .shared,
+                                                                  spaces: .shared))
         window.center()
 
         return window

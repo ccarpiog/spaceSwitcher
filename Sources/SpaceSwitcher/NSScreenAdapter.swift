@@ -37,6 +37,21 @@ struct NSScreenAdapter {
         return CFUUIDCreateString(nil, cfUUID.takeRetainedValue()) as String
     }
 
+    /// The SkyLight display UUID of the primary display.
+    ///
+    /// Asked of Core Graphics rather than of `NSScreen.main`, which is the screen
+    /// holding the key window and moves with it. The primary display is the fixed
+    /// one at the origin of the global coordinate space, and it is the display
+    /// whose first Space SkyLight reports with an empty uuid — see
+    /// `Space.nameKey(uuid:displayID:index:isPrimaryDisplay:)`.
+    ///
+    /// - Returns: the UUID string, or `nil` if Core Graphics will not give one,
+    ///   which leaves no display matching and simply costs that Space its name key.
+    static func primaryDisplayUUID() -> String? {
+        guard let cfUUID = CGDisplayCreateUUIDFromDisplayID(CGMainDisplayID()) else { return nil }
+        return CFUUIDCreateString(nil, cfUUID.takeRetainedValue()) as String
+    }
+
     /// The screen matching a SkyLight display UUID, if it is still connected.
     static func screen(forUUID uuid: String) -> NSScreen? {
         NSScreen.screens.first { self.uuid(for: $0) == uuid }

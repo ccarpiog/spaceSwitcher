@@ -3,14 +3,14 @@ import SwiftUI
 
 /// The Settings window's contents: one tab per section.
 ///
-/// The tab bar is deliberately here from the start even though there is only one
-/// section so far. The remaining work slots in without reshaping anything: the
-/// Space renaming list arrives as a second tab beside "General".
+/// "General" holds what affects the app as a whole; "Spaces" is the list of
+/// Spaces and the names given to them.
 struct SettingsView: View {
 
     @ObservedObject var preferences: Preferences
     @ObservedObject var hotKeys: HotKeyController
     @ObservedObject var loginItem: LoginItemController
+    @ObservedObject var spaces: SpacesSettingsModel
 
     var body: some View {
         TabView {
@@ -21,6 +21,13 @@ struct SettingsView: View {
                     Label(NSLocalizedString("settings.tab.general",
                                             comment: "Name of the general settings tab"),
                           systemImage: "gearshape")
+                }
+
+            SpacesSettingsView(preferences: preferences, model: spaces)
+                .tabItem {
+                    Label(NSLocalizedString("settings.tab.spaces",
+                                            comment: "Name of the Space renaming tab"),
+                          systemImage: "square.grid.2x2")
                 }
         }
         .frame(minWidth: 480, minHeight: 400)

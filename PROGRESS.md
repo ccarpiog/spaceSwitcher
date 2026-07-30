@@ -12,7 +12,8 @@ from it without any conversation history.
 | --- | --- | --- |
 | 1 | Preferences store, Settings window shell, entry points (gear, menu bar icon, ⌘,) | **done**, verified, committed |
 | 2 | General tab: configurable hotkey + open at login | **done**, verified, committed |
-| 3 | Space renaming (persistent identity + Settings list + HUD display) | not started |
+| 3 | Space renaming (persistent identity + Settings list + HUD display) | **done**, verified, committed |
+| 4 | Hide the panel before the Space switch begins | not started — added to `todo.md` by the user after phase 3 |
 
 ## Phase 1 — completed
 
@@ -191,6 +192,106 @@ Note that `SMAppService` judges by install location: run from
 `build/spaceSwitcher.app` inside the repo, `status` may well be `.notFound`, which
 the UI explains rather than treating as an error.
 
+## Phase 3 — completed
+
+**What was built**
+
+- `SpaceModel.swift` — `Space` gained `uuid`, `customName`, `nameKey`,
+  `rowIdentity`, `isRenameable`, and a `generatedTitle` split out of `title`, so
+  the generated "Desktop N" / fullscreen labelling is untouched and a rename is a
+  pure override. `SpaceEnumerator.enumerate(customNames:)` resolves the name at
+  enumeration time, which is why the HUD needed no change to display it.
+- `Preferences.swift` — `cc.carpio.spaceSwitcher.spaceNames`, a
+  `[String: String]` of name key → name, behind `setSpaceName(_:for:)` /
+  `spaceName(for:)` with a defensive reader. `private(set)` with a mutator rather
+  than an open dictionary, so a blank name cannot be written as an empty string.
+- `SpacesSettingsView.swift` — the Spaces tab: displays, their Spaces, a "current"
+  badge, the app list as a subtitle, and a name field bound straight to the store.
+  Re-enumerates on `onAppear`, on `didBecomeActive`, and from
+  `SettingsWindowController.show()`.
+- `NSScreenAdapter.primaryDisplayUUID()` — needed to identify the one display
+  whose first Space has no uuid.
+
+**Acceptance**
+
+| Criterion | Met | Evidence |
+| --- | --- | --- |
+| `swift build` clean | yes | exit 0, zero warnings, forced full recompile after `touch`; also from a wiped `.build` |
+| `./build.sh` produces the bundle | yes | exit 0, Developer ID signed, `codesign --verify --strict` valid |
+| en/es string keys identical | yes | key lists extracted and diffed, no difference; **47 keys each**, 6 new |
+| `.strings` files parse | yes | `plutil -lint` OK on both |
+| Name persists and reaches the HUD | yes | typed in the real signed bundle, stored under the Space uuid, shown in the panel; emptying the field removed the entry outright |
+| Hostile defaults do not trap | yes | scratch probe over non-string, array, wrong-typed, empty-key, newline and 300-char values |
+| App launches and quits cleanly | yes | bundle launched, alive, terminated cleanly, no crash report |
+
+**The identity decision, as actually implemented**
+
+The rename key is SkyLight's per-Space `uuid`. **Verified again on this machine
+during this phase**: `CGMainDisplayID()` is 3, UUID `D5CE04A8-…`, matching
+SkyLight's `"Display Identifier"`; that display's Space[0] is the *only* Space
+reporting `uuid == ""`, while the second display's Space[0] carries a real uuid.
+So the empty-uuid caveat is about the **primary display specifically**, not "the
+first Space of each display" — an earlier phrasing of it was wrong.
+
+A positional key `position:<displayID>#<index>` is therefore derived **only** when
+the uuid is empty *and* the display is primary *and* the index is 0. Any other
+uuid-less Space gets `nameKey == nil`: listed, but not renameable. That narrowing
+is what closes review finding 1 (below). Space *ids* are persisted nowhere.
+
+**Accepted residual risk, documented at the derivation site:** removing the primary
+display's first Space passes its name to whichever Space takes that position. It is
+inherent to positional keying. It is *not* solved by garbage-collecting entries
+that match no live Space — a display merely unplugged would take its Spaces' names
+with it.
+
+**Deviations and decisions**
+
+- **Fullscreen Spaces are not renameable.** They are rebuilt with a new uuid every
+  time an app re-enters fullscreen, so a name would silently stop applying and
+  orphan its entry; macOS already labels them by app. They still appear in the
+  list, with an explanation where the field would be.
+- **Names are stored verbatim, not trimmed.** Trimming on the way in swallows a
+  trailing space the instant it is typed, which makes a two-word name impossible to
+  enter. Blankness is judged on a trimmed copy; readers normalise.
+- **Names are sanitised, which is not the same as trimmed.** Control characters and
+  newlines each collapse to one space (ZWJ spared, so emoji sequences survive) and
+  the result is truncated grapheme-safely at `Space.maximumNameLength` (60).
+  Applied on write *and* on read, since the store must be assumed already dirty.
+- **Row identity is not `Space.id`.** For renameable rows `rowIdentity` *is* the
+  `nameKey`, so identity and storage key cannot diverge; keyless rows fall back to
+  `unkeyed:<display>#<index>`, a namespace that cannot collide with a uuid or a
+  `position:` key.
+- A UI defect found during visual verification and fixed: inside a `Form`,
+  `TextField(_:text:)`'s title renders as a label *beside* the field, so every row
+  showed a stray second "Desktop 1". Now `prompt:` + `labelsHidden()`.
+
+**Codex review** — `docs/reviews/phase3-space-renaming.md`
+
+Three findings, all accepted and fixed in the working tree:
+
+1. *High — the positional fallback could rename the wrong Space.* It was applied to
+   every uuid-less Space at any index, so an orphaned entry could be inherited by a
+   different Space, and a uuid-bearing Space that lost its uuid could pick up a
+   stale positional entry at its index. Fixed by narrowing the fallback to the one
+   empirically verified case, as described above.
+2. *Medium — hostile or oversized names broke the HUD.* `"Work\nInjected row"`
+   became a multiline title and a long value could make the panel unusable. Fixed
+   by the sanitising described above plus `.lineLimit(1)` and `.truncationMode(.tail)`
+   on the HUD title. Worth noting this was never only a hostile-defaults concern:
+   a user can type an absurdly long name into the field themselves.
+3. *Medium — SwiftUI row identity used the unstable `Space.id`.* An id reused for a
+   different Space while a field was focused could send continued editing to the
+   wrong Space. Fixed by `rowIdentity`.
+
+Codex also confirmed as fine: no numeric Space id persisted, uuid and positional
+namespaces do not collide, blank handling consistent through `normalisedName`,
+main-actor annotations sound with no publish loop, refreshes do not overwrite edits
+(the text bindings read straight from `Preferences`), and localisation complete.
+
+**Not verified headlessly** — that a stable row id keeps a focused field on its own
+row while the list re-enumerates underneath it, and the HUD's visual truncation.
+Both need a real focused field in a real window and rest on code review.
+
 ## Decisions taken before phase 1
 
 - **Settings is reachable two ways, both requested by the user**: a gear button
@@ -225,33 +326,48 @@ Runtime checks are manual (open the bundle, press the hotkey).
 
 ## Next action
 
-Phase 2 and its review fixes are in the working tree, uncommitted. Before phase 3:
-run the app from `/Applications` and check by hand what could not be verified
-headlessly — recording a shortcut, cancelling one with Escape, "restore default",
-and the login item round trip including the return from System Settings. Note that
-"a combination another app owns is refused" is *not* testable: Carbon does not
-refuse those (see `CLAUDE.md`).
+The original `todo.md` ask — shortcut, open at login, renaming — is **complete**
+through phase 3. The user has since added a line to `todo.md`, which is phase 4:
 
-Then execute **phase 3**: per-Space renaming. Concretely:
+> Also, make sure that the program window disappears before we switch to the new
+> space.
 
-1. Persist names under `cc.carpio.spaceSwitcher.spaceNames`, keyed by SkyLight's
-   per-Space `uuid`, with the positional `displayID + index` fallback for the
-   primary display's first Space, whose `uuid` comes back empty (both verified —
-   see the decisions below).
-2. Add a Spaces tab to `SettingsView`: displays and their Spaces, each with an
-   editable name field.
-3. Show the name in the HUD in place of "Desktop N", keeping the app list as the
-   secondary line.
+Execute **phase 4**: order the HUD panel out (and let it finish disappearing)
+*before* the Space transition starts, rather than leaving it on screen through the
+animation. Concretely:
+
+1. Find where the jump is triggered — `SpaceSwitchEngine.swift` and
+   `SwitcherController.swift` — and close the panel first, then send the Apple
+   Event.
+2. The panel joins all Spaces (`.canJoinAllSpaces`), which is exactly why it rides
+   along through the transition today. Read that part of `CLAUDE.md` before
+   changing it: the flag also exists so the panel is not dragged off the user's
+   current Space, so removing it is not the fix.
+3. Beware of ordering: `orderOut` is asynchronous with respect to the compositor.
+   Verify the panel is actually gone *before* the transition begins rather than
+   assuming the call is synchronous — and do not paper over it with a fixed sleep
+   long enough to be felt.
+
+Two manual checks still outstanding from earlier phases, both needing a human at
+the keyboard (they block nothing):
+
+- Phase 2 — recording a shortcut, cancelling one with Escape, "restore default",
+  and the login item round trip including the return from System Settings. Note
+  "a combination another app owns is refused" is *not* testable: Carbon does not
+  refuse those (see `CLAUDE.md`).
+- Phase 3 — keeping focus in a name field while the Spaces list re-enumerates.
 
 New strings go in **both** `.lproj/Localizable.strings` files.
 
 ## Key paths
 
 - `Sources/SpaceSwitcher/` — all Swift sources (SwiftUI views hosted in AppKit)
-- `Sources/SpaceSwitcher/Preferences.swift` — add the phase-3 key here
-- `Sources/SpaceSwitcher/SettingsView.swift` — where the Spaces tab goes
+- `Sources/SpaceSwitcher/SpaceSwitchEngine.swift`, `SwitcherController.swift`,
+  `HUDPanel.swift` — where phase 4 has to hide the panel before the jump
+- `Sources/SpaceSwitcher/Preferences.swift` — the `spaceNames` store
+- `Sources/SpaceSwitcher/SettingsView.swift`, `SpacesSettingsView.swift` — Settings
 - `Sources/SpaceSwitcher/SpaceModel.swift`, `SkyLightBridge.swift` — the Space
-  enumeration phase 3 has to key its names off
+  enumeration and the name-key derivation
 - `Resources/en.lproj/Localizable.strings`, `Resources/es.lproj/Localizable.strings`
 - `CLAUDE.md` — platform findings; read before touching the Spaces code
 - `docs/reviews/` — Codex review transcripts, one file per phase
@@ -261,7 +377,11 @@ New strings go in **both** `.lproj/Localizable.strings` files.
 - Phase 1: commit `c62bcf5` on `main`, pushed to `origin` successfully
   (`7be5f65..c62bcf5`). Checkpoint recorded in `8a546ae`.
 - Phase 2: commit `1660547` on `main`, pushed to `origin` successfully
-  (`8a546ae..1660547`), review fixes included. Tree clean apart from the user's
-  own untracked icon files (`icon_prompts.md`, `*.png`) — **not part of this work,
-  do not commit them**.
+  (`8a546ae..1660547`), review fixes included. Checkpoint recorded in `dd94564`.
+- App and menu bar icons: commit `c74de0a`, pushed (`dd94564..c74de0a`).
+- Phase 3: see the commit recorded below this line once made; review fixes
+  included in the same commit.
 - Base before this work: `7be5f65`.
+
+`todo.md` carries the user's phase-4 line and is **deliberately left uncommitted**
+so it is not mixed into the phase-3 commit; commit it with phase 4.

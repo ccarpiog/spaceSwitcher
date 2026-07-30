@@ -9,6 +9,7 @@ final class SwitcherController {
     private let enumerator = SpaceEnumerator()
     private let engine = SpaceSwitchEngine()
     private let model = HUDViewModel()
+    private let preferences = Preferences.shared
     private let menuBar = MenuBarController(preferences: .shared)
     private let hotKeys = HotKeyController.shared
 
@@ -106,7 +107,10 @@ final class SwitcherController {
         }
 
         model.fatalMessage = nil
-        model.displays = enumerator.enumerate()
+        // The names are read here, on every opening, rather than held anywhere:
+        // the user may have renamed a Space in Settings a second ago, and the
+        // panel is the place that has to show it.
+        model.displays = enumerator.enumerate(customNames: preferences.spaceNames)
         model.selectDefault()
 
         // Only an outright refusal is worth a warning. `.notDetermined` just means

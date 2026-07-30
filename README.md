@@ -22,6 +22,15 @@ macOS gives desktops no names, so listing the apps on each one is what makes the
 panel usable — otherwise it would just read "Desktop 1, 2, 3". Fullscreen Spaces
 are named after the app filling them.
 
+You can also name desktops yourself, in settings, and the panel shows your name
+in place of "Desktop 2" while keeping the app list underneath it. Names are tied
+to the Space itself rather than to its position, so they survive a restart. The
+one exception is your main display's first desktop, which macOS gives no identity
+of its own: its name is remembered by position, so removing that desktop passes
+the name on to whichever one takes its place. Fullscreen Spaces cannot be renamed:
+they are built afresh every time an app goes fullscreen, so a name given to one
+would quietly stop applying.
+
 ## Install
 
 ```bash
@@ -34,8 +43,8 @@ panel to quit it, or turn on the optional menu bar icon in settings, which is
 where Quit also lives.
 
 Settings open from the gear button in the panel, from the menu bar icon, or with
-`⌘,`. They hold the global shortcut, whether the app opens at login, and whether
-the menu bar icon is shown.
+`⌘,`. They hold the global shortcut, whether the app opens at login, whether the
+menu bar icon is shown, and the names of your Spaces.
 
 For a signed, notarized build suitable for copying to another Mac:
 

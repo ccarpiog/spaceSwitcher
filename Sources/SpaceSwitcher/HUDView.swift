@@ -225,6 +225,13 @@ private struct SpaceRowView: View {
                 HStack(spacing: 6) {
                     Text(row.space.title)
                         .font(.system(size: 13, weight: .medium))
+                        // The title is the one line in the panel a user can write.
+                        // Held to one line and truncated so no name, however long,
+                        // can add rows to the panel or make it taller. The length
+                        // is capped at the store as well — see
+                        // `Space.maximumNameLength` — this is the second lock.
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     if row.space.isActive {
                         Text(NSLocalizedString("space.current",
                                                comment: "Marker on the Space already on screen"))

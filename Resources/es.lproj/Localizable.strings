@@ -32,6 +32,27 @@
 /* Name of the tab holding the settings that affect the whole app. */
 "settings.tab.general" = "General";
 
+/* Name of the tab listing every Space so it can be given a name. */
+"settings.tab.spaces" = "Espacios";
+
+/* Note at the top of the Spaces tab, explaining what the name fields are for. */
+"settings.spaces.detail" = "Ponle nombre a un espacio y el panel mostrará ese nombre en lugar del que da macOS. Vacía el campo para volver a él. Las apps que aparecen debajo de cada espacio están ahí para ayudarte a distinguir un escritorio vacío de otro.";
+
+/* Shown in place of a name field for a fullscreen Space. Those are named after
+   the app filling them and are rebuilt from scratch every time, so a name given
+   to one would stop applying without warning. */
+"settings.spaces.fullscreen" = "Toma el nombre de su app";
+
+/* Shown in place of a name field for a Space macOS reports without an identifier
+   of its own, which leaves nowhere to file a name. */
+"settings.spaces.unnameable" = "No se le puede poner nombre";
+
+/* Tooltip on that message, explaining why. */
+"settings.spaces.unnameable.help" = "macOS no da ningún identificador para este espacio, así que un nombre no se volvería a encontrar la próxima vez.";
+
+/* Shown in the Spaces tab when the layout came back with no Spaces in it at all. */
+"settings.spaces.empty" = "Ahora mismo no se ha podido leer ningún espacio. Abre Mission Control una vez y vuelve aquí.";
+
 /* Label of the row holding the global shortcut recorder. */
 "settings.general.hotKey" = "Atajo global";
 
