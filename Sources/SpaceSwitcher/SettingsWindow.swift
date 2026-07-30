@@ -42,6 +42,11 @@ final class SettingsWindowController {
         let window = self.window ?? makeWindow()
         self.window = window
 
+        // Asked for here as well as from the view's `onAppear`: the window is kept
+        // alive between showings, so a second `show()` re-orders a view hierarchy
+        // that never went away and never appears again.
+        LoginItemController.shared.refresh()
+
         // Activating is not optional. The app is `.accessory`, so ordering a window
         // front without activating leaves it drawn but unable to become key — the
         // same reason the HUD panel activates before it appears.
@@ -52,7 +57,7 @@ final class SettingsWindowController {
     /// Builds the window and hosts the SwiftUI settings inside it.
     private func makeWindow() -> SettingsWindow {
         let window = SettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 440),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false)
@@ -62,12 +67,14 @@ final class SettingsWindowController {
         // Closing has to leave the window reusable. The default is to deallocate it
         // on close, after which the next `show()` would message a freed object.
         window.isReleasedWhenClosed = false
-        window.contentMinSize = NSSize(width: 460, height: 240)
+        window.contentMinSize = NSSize(width: 480, height: 400)
         // Follow the user rather than drag them somewhere else. This app exists to
         // move between Spaces, so a Settings window pinned to whichever Space it
         // was first opened on would throw them off the one they are working in.
         window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        window.contentView = NSHostingView(rootView: SettingsView(preferences: .shared))
+        window.contentView = NSHostingView(rootView: SettingsView(preferences: .shared,
+                                                                  hotKeys: .shared,
+                                                                  loginItem: .shared))
         window.center()
 
         return window

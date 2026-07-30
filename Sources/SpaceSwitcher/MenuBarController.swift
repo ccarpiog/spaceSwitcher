@@ -19,6 +19,16 @@ final class MenuBarController: NSObject {
     private var statusItem: NSStatusItem?
     private var observation: AnyCancellable?
 
+    /// Whether the icon is being shown regardless of the preference.
+    ///
+    /// The app's way in is a global shortcut; when there is none — Carbon refusing
+    /// both the stored combination and the default, or the keyboard handler
+    /// failing to install — this icon is the only thing left that can open
+    /// Settings. The override lasts for the session and is deliberately not
+    /// written to `Preferences`: the user asked for no icon, and they will get no
+    /// icon again as soon as a shortcut works.
+    private var isForcedVisible = false
+
     /// - Parameter preferences: the store to follow. Passed in rather than
     ///   defaulted to `.shared`: a default argument is evaluated in a nonisolated
     ///   context, which cannot touch a main-actor-isolated `static let`.
@@ -42,9 +52,32 @@ final class MenuBarController: NSObject {
             // the thread that assigned it, so every emission necessarily arrives on
             // the main actor. Were the store ever de-isolated this would have to
             // become a real hop — `assumeIsolated` traps, it does not switch.
-            MainActor.assumeIsolated { self?.setVisible(isVisible) }
+            //
+            // The emitted value is used rather than re-read from the store:
+            // `@Published` publishes in `willSet`, so the property still holds the
+            // previous value while this runs.
+            MainActor.assumeIsolated { self?.update(preferenceIsOn: isVisible) }
         }
     } // End of start()
+
+    /// Shows the icon whatever the preference says, for as long as the app runs.
+    ///
+    /// Called when the app has ended up with no global shortcut, which would
+    /// otherwise leave it with no interface at all: no dock icon, no menu bar, and
+    /// a `⌘,` that needs a window already on screen. Works before or after
+    /// `start()`, since launch order is not this class's business.
+    func forceVisible() {
+        guard !isForcedVisible else { return }
+        isForcedVisible = true
+        update(preferenceIsOn: preferences.showsMenuBarIcon)
+    }
+
+    /// Resolves the preference and the override into one answer.
+    ///
+    /// - Parameter preferenceIsOn: what the user asked for.
+    private func update(preferenceIsOn: Bool) {
+        setVisible(preferenceIsOn || isForcedVisible)
+    }
 
     /// Creates or tears down the status item so the toggle takes effect
     /// immediately. Idempotent, since the publisher also fires on subscription.

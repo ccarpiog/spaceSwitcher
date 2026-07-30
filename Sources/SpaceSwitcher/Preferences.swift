@@ -25,14 +25,17 @@ final class Preferences: ObservableObject {
     /// names like `"showsMenuBarIcon"` would be an invitation to collide.
     private enum Key {
         static let showsMenuBarIcon = "cc.carpio.spaceSwitcher.showsMenuBarIcon"
+        static let hotKeyCode = "cc.carpio.spaceSwitcher.hotKeyCode"
+        static let hotKeyModifiers = "cc.carpio.spaceSwitcher.hotKeyModifiers"
 
-        // Reserved for the later phases, named here so they stay consistent when
-        // they arrive. None of them are read or written yet.
+        // Reserved for the later phase, named here so it stays consistent when it
+        // arrives. Not read or written yet.
         //
-        //   cc.carpio.spaceSwitcher.hotKeyCode       — configurable hotkey (phase 2)
-        //   cc.carpio.spaceSwitcher.hotKeyModifiers  — configurable hotkey (phase 2)
-        //   cc.carpio.spaceSwitcher.opensAtLogin     — SMAppService state (phase 2)
         //   cc.carpio.spaceSwitcher.spaceNames       — Space uuid → name (phase 3)
+        //
+        // There is deliberately no key for the login item: `SMAppService` holds
+        // that state, and a copy of it here would go stale the moment the user
+        // revoked it in System Settings.
     }
 
     private let defaults: UserDefaults
@@ -46,11 +49,48 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(showsMenuBarIcon, forKey: Key.showsMenuBarIcon) }
     }
 
+    /// The global shortcut that opens the panel.
+    ///
+    /// Stored as one value rather than as two properties: a key code and a
+    /// modifier mask published separately would emit an intermediate combination
+    /// that was never asked for, and whoever registers it would briefly claim it.
+    ///
+    /// Written only after Carbon has accepted the combination — see
+    /// `HotKeyController` — so what is stored here is always a shortcut that works.
+    @Published var hotKey: HotKeyCombination {
+        didSet {
+            defaults.set(Int(hotKey.keyCode), forKey: Key.hotKeyCode)
+            defaults.set(Int(hotKey.modifiers), forKey: Key.hotKeyModifiers)
+        }
+    }
+
     /// - Parameter defaults: the store to read from and write to.
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         // `bool(forKey:)` answers false for a key that was never written, which is
         // exactly the wanted default, so no registration domain is needed.
         showsMenuBarIcon = defaults.bool(forKey: Key.showsMenuBarIcon)
+        hotKey = Preferences.readHotKey(from: defaults)
     }
+
+    /// Reads the stored shortcut, falling back to the default whenever what is
+    /// there cannot be trusted.
+    ///
+    /// The checks are not paranoia about our own writes but about the store: this
+    /// app is non-sandboxed and its defaults are plain text anyone can edit. A
+    /// negative number would trap the `UInt32` conversion, and a combination with
+    /// no modifier would claim a bare key in every application on the machine.
+    ///
+    /// - Parameter defaults: the store to read from.
+    /// - Returns: the stored shortcut, or `HotKeyCombination.default`.
+    private static func readHotKey(from defaults: UserDefaults) -> HotKeyCombination {
+        guard let storedCode = defaults.object(forKey: Key.hotKeyCode) as? Int,
+              let storedModifiers = defaults.object(forKey: Key.hotKeyModifiers) as? Int,
+              let keyCode = UInt32(exactly: storedCode),
+              let modifiers = UInt32(exactly: storedModifiers)
+        else { return .default }
+
+        let combination = HotKeyCombination(keyCode: keyCode, modifiers: modifiers)
+        return combination.hasModifier ? combination : .default
+    } // End of readHotKey(from:)
 }

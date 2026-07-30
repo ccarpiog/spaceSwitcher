@@ -129,6 +129,33 @@ Space makes the most natural gesture — open the panel, press Return — close 
 panel and change nothing, which reads as a broken jump rather than as the no-op
 it is.
 
+### Registering the global hotkey — what Carbon actually refuses
+
+`RegisterEventHotKey` is far more permissive than it looks, verified on this
+machine with a scratch binary and a second process holding the combination:
+
+| Situation | Result |
+| --- | --- |
+| Another **process** already registered the same combination | **succeeds** (`noErr`) |
+| The **system** owns it (tried `⌘Space`, Spotlight) | **succeeds** (`noErr`) |
+| The **same process** registers it twice, any hotkey id | fails, `eventHotKeyExistsErr` (-9878) |
+| A second `GlobalHotKey` in the process installs its handler | fails, `eventHandlerAlreadyInstalledErr` — the callback is a non-capturing closure, so both instances pass Carbon the same function pointer for the same target |
+
+So "another app owns the shortcut" does **not** produce a registration failure.
+Do not write code — or user-facing text — that assumes a refusal means the
+combination is taken; the refusal you can actually trigger is our own duplicate.
+The app still handles refusal defensively, because there is no interface left
+when the one shortcut fails, but it is a rare path, not the common one.
+
+Two consequences for the code:
+
+- `register(_:)` short-circuits when the combination asked for is already the one
+  registered. It has to: the replacement is claimed *before* the old one is
+  released, so without the short-circuit re-registering the current combination
+  would hit -9878.
+- Exactly one `GlobalHotKey` may exist per process, which is why it lives inside
+  the `HotKeyController` singleton.
+
 ## Distribution
 
 The app must be **non-sandboxed** (private framework + Apple Events). It can

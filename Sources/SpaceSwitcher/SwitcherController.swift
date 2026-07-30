@@ -10,19 +10,13 @@ final class SwitcherController {
     private let engine = SpaceSwitchEngine()
     private let model = HUDViewModel()
     private let menuBar = MenuBarController(preferences: .shared)
+    private let hotKeys = HotKeyController.shared
 
-    private var hotKey: GlobalHotKey?
     private var panel: HUDPanel?
     private var keyMonitor: Any?
     /// The app that was frontmost before the panel opened, restored on cancel so
     /// dismissing the HUD leaves the session exactly as it was.
     private var previousApp: NSRunningApplication?
-
-    /// Default hotkey: `Ctrl+Option+Space`. Chosen to avoid the system's own
-    /// bindings — `Cmd+Ctrl+Space` is the Character Viewer, `Ctrl+Space` the
-    /// input-source switcher.
-    private static let defaultKeyCode = UInt32(kVK_Space)
-    private static let defaultModifiers = UInt32(controlKey | optionKey)
 
     /// Name of the distributed notification that opens the panel.
     ///
@@ -35,16 +29,22 @@ final class SwitcherController {
 
     /// Registers the global hotkey and the notification trigger. Called once at launch.
     func start() {
-        let key = GlobalHotKey(keyCode: SwitcherController.defaultKeyCode,
-                               modifiers: SwitcherController.defaultModifiers)
-        key.onPress = { [weak self] in self?.toggle() }
-        hotKey = key
-
         // The status item comes and goes with the preference on its own; all it
-        // needs from here is what its entries should do.
+        // needs from here is what its entries should do. Started before the
+        // shortcut, because it is the fallback when the shortcut cannot be had.
         menuBar.onShowPanel = { [weak self] in self?.present() }
         menuBar.onOpenSettings = { [weak self] in self?.openSettings() }
         menuBar.start()
+
+        // The shortcut itself is a setting, so which combination is claimed — and
+        // re-claimed whenever the user records a new one — is not this class's
+        // business. All it wants is to be told when it fires.
+        hotKeys.onPress = { [weak self] in self?.toggle() }
+        // An app reached only by a shortcut has to be reachable some other way
+        // when there is no shortcut left to reach it by, or it launches invisible
+        // and stays that way.
+        hotKeys.onUnreachable = { [weak self] in self?.menuBar.forceVisible() }
+        hotKeys.start()
 
         // Two notification systems, because they are genuinely distinct and each
         // is the natural choice for a different caller:

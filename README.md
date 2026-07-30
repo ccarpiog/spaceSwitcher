@@ -29,8 +29,13 @@ are named after the app filling them.
 open build/spaceSwitcher.app
 ```
 
-The app has no dock icon and no menu bar item — the hotkey is the whole
-interface. Press **q** in the panel to quit it.
+The app has no dock icon — the hotkey is the whole interface. Press **q** in the
+panel to quit it, or turn on the optional menu bar icon in settings, which is
+where Quit also lives.
+
+Settings open from the gear button in the panel, from the menu bar icon, or with
+`⌘,`. They hold the global shortcut, whether the app opens at login, and whether
+the menu bar icon is shown.
 
 For a signed, notarized build suitable for copying to another Mac:
 
@@ -52,7 +57,7 @@ selecting one is what triggers the permission prompt in the first place.
 
 | Key | Action |
 | --- | --- |
-| `⌃⌥Space` | open or close the panel |
+| `⌃⌥Space` | open or close the panel (the default; change it in settings) |
 | `↑` `↓` | move the highlight |
 | `1`–`9` | jump straight to that Space |
 | `⏎` | jump to the highlighted Space |

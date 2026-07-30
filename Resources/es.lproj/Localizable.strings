@@ -32,6 +32,70 @@
 /* Name of the tab holding the settings that affect the whole app. */
 "settings.tab.general" = "General";
 
+/* Label of the row holding the global shortcut recorder. */
+"settings.general.hotKey" = "Atajo global";
+
+/* Note under the shortcut recorder, explaining how to change it. */
+"settings.general.hotKey.detail" = "Pulsa este atajo desde cualquier app para abrir el panel de espacios. Haz clic en el atajo y pulsa la combinación que quieras; con Escape se cancela.";
+
+/* Shown on the recorder button while it waits for the key press. */
+"settings.general.hotKey.recording" = "Pulsa el atajo nuevo…";
+
+/* Tooltip on the recorder button. */
+"settings.general.hotKey.help" = "Haz clic y pulsa la combinación que quieras. Escape cancela.";
+
+/* Button that puts the original shortcut back. */
+"settings.general.hotKey.reset" = "Restaurar el predeterminado";
+
+/* Shown when the recorded combination has no modifier key. Refused because a
+   shortcut without modifiers takes that key over in every application. */
+"settings.general.hotKey.error.noModifier" = "Añade al menos un modificador (⌘, ⌃, ⌥ o ⇧): un atajo sin modificadores se quedaría con esa tecla en todas las apps.";
+
+/* Shown when macOS refused the new combination and the previous shortcut is still
+   working. %1$@ is the refused combination, %2$@ the one still in use. The cause
+   is deliberately hedged: macOS reports a refusal, never a reason. */
+"settings.general.hotKey.error.taken" = "macOS no ha aceptado %1$@, así que spaceSwitcher sigue usando %2$@. Puede que otra app ya tenga esa combinación.";
+
+/* Shown at launch when the stored shortcut was refused and the default one is
+   standing in for it. %1$@ is the stored combination, %2$@ the default. */
+"settings.general.hotKey.error.usingFallback" = "macOS no ha aceptado %1$@ al abrirse la app, así que spaceSwitcher está usando %2$@ por ahora. Tu combinación se ha conservado y se volverá a intentar la próxima vez que se abra la app.";
+
+/* Shown when the combination was refused and no working shortcut is left at all,
+   so the menu bar icon has been turned on to keep the app reachable. %1$@ is the
+   combination that was refused. */
+"settings.general.hotKey.error.unavailable" = "macOS no ha aceptado %1$@ y tampoco se ha podido registrar ningún otro atajo, así que spaceSwitcher se ha quedado sin ninguno. Se ha activado el icono de la barra de menús durante esta sesión para que estos ajustes sigan a mano; elige otra combinación.";
+
+/* Shown when macOS refused to release the shortcut in force, so it cannot be
+   replaced for the moment. %1$@ is that combination. */
+"settings.general.hotKey.error.notReleased" = "macOS no ha liberado %1$@, así que sigue en uso y ahora mismo no se puede sustituir. Vuelve a intentarlo dentro de un momento.";
+
+/* Shown when the keyboard could not be read, so recording never started. */
+"settings.general.hotKey.error.recorderUnavailable" = "No se ha podido leer el teclado, así que ahora mismo no se puede grabar el atajo. Vuelve a intentarlo dentro de un momento.";
+
+/* Shown when the app's own keyboard handler could not be installed, which leaves
+   no global shortcut possible at all. */
+"settings.general.hotKey.error.dispatchUnavailable" = "spaceSwitcher no ha podido instalar su gestor de teclado, así que el atajo global no puede funcionar. Se ha activado el icono de la barra de menús durante esta sesión; salir de la app y volver a abrirla suele arreglarlo.";
+
+/* Label of the toggle that starts the app when the user logs in. */
+"settings.general.login" = "Abrir al iniciar sesión";
+
+/* Note under that toggle. */
+"settings.general.login.detail" = "spaceSwitcher se abre solo al iniciar sesión. No tiene icono en el Dock: se queda esperando el atajo.";
+
+/* Shown when macOS holds the login item but is waiting for the user to approve it. */
+"settings.general.login.requiresApproval" = "macOS está esperando a que apruebes este ítem de inicio. Actívalo en Ajustes del Sistema › General › Ítems de inicio.";
+
+/* Shown when macOS does not recognise this copy of the app as a login item, which
+   normally means it is being run from somewhere it was not installed. */
+"settings.general.login.notFound" = "macOS no encuentra esta copia de spaceSwitcher como ítem de inicio. Mueve la app a la carpeta Aplicaciones y vuelve a intentarlo.";
+
+/* Shown when registering or unregistering the login item failed; %@ is the
+   system's description of the error. */
+"settings.general.login.failed" = "No se ha podido cambiar el ítem de inicio: %@";
+
+/* Button that opens the login items list in System Settings. */
+"settings.general.login.openSystemSettings" = "Abrir los ítems de inicio";
+
 /* Label of the toggle that shows or hides the menu bar icon. */
 "settings.general.menuBarIcon" = "Mostrar el icono en la barra de menús";
 
