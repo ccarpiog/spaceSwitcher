@@ -26,6 +26,37 @@ final class SpaceSwitchEngine {
         case spaceNotFound
         /// The keypresses were sent but the Space never became active.
         case didNotArrive(expected: UInt64, actual: UInt64)
+        /// The user moved on before the walk finished, so it stopped where it was.
+        case cancelled
+    }
+
+    /// A one-way "stop" signal for a jump that has already been handed over.
+    ///
+    /// The controller decides a jump is stale on the main actor, but the walk runs
+    /// on this class's own serial queue, so the two cannot share the controller's
+    /// `pendingJump`: that is main-actor confined and identity comparison is not
+    /// something a background queue may do with it. This object is the one piece of
+    /// a jump both sides are allowed to touch, so it carries its own lock.
+    ///
+    /// One-way on purpose. A cancelled jump is never revived; the controller
+    /// allocates a fresh one per selection, exactly as it does the jump itself.
+    final class Cancellation: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cancelled = false
+
+        /// Whether the jump has been given up on. Safe to ask from any thread.
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+
+        /// Gives up on the jump. Safe to call from any thread, and idempotent.
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            lock.unlock()
+        }
     }
 
     private let bridge: SkyLightBridge
@@ -111,13 +142,23 @@ final class SpaceSwitchEngine {
 
     /// Jumps to `space`, reporting the outcome on the main queue.
     ///
+    /// The work is queued rather than done here, which is what `cancellation` is
+    /// for: by the time the first keypress goes out the user may already have
+    /// reopened the panel or opened Settings, and a walk several Spaces long can
+    /// still be running when they do. The signal is therefore asked before *every*
+    /// press, not once at the start, and a walk that is told to stop stops where it
+    /// has got to — see `SwitcherController.abandonPendingJump(because:)` for why
+    /// stopping beats retracing.
+    ///
     /// - Parameters:
     ///   - space: the Space to land on.
     ///   - displays: the enumeration the target came from, used to work out the
     ///     ordering and to locate the display for a cursor warp.
+    ///   - cancellation: asked before the cursor warp and before each keypress.
     ///   - completion: called on the main queue with success or the reason for failure.
     func switchTo(space: Space,
                   in displays: [DisplaySpaces],
+                  cancellation: Cancellation,
                   completion: @escaping (Result<Void, SwitchError>) -> Void) {
 
         guard let display = displays.first(where: { $0.id == space.displayID }),
@@ -137,6 +178,15 @@ final class SpaceSwitchEngine {
         queue.async { [weak self] in
             guard let self else { return }
 
+            // The queue is serial, so this may have waited behind an earlier walk,
+            // and the user may have moved on in the meantime. Asked before the
+            // cursor warp below, which is both visible and 50 ms long — the widest
+            // part of the window between the choice and the first keypress.
+            if cancellation.isCancelled {
+                DispatchQueue.main.async { completion(.failure(.cancelled)) }
+                return
+            }
+
             // No permission pre-check here. Sending the event is itself the check:
             // it launches System Events if needed and raises the TCC prompt at a
             // moment the user understands. Pre-checking would report a refusal
@@ -151,8 +201,19 @@ final class SpaceSwitchEngine {
             // from the globally active one. When the target is on another display
             // those differ, and using the global value would look up a Space that
             // is not in this display's list at all, aborting the jump.
+            //
+            // Read now rather than taken from `displays`: that snapshot says where
+            // the display was when the user was looking at the panel, and the walk
+            // has to start from where it is once the cursor has been warped onto
+            // it. The two differ whenever anything moved in between — the user
+            // themselves, or an earlier jump of ours only just finishing — and a
+            // delta measured from the wrong end walks the wrong distance. The
+            // *ordering* still comes from the snapshot, because that is the list
+            // the user picked from.
+            let currentID = self.bridge.currentSpace(onDisplay: display.id)
+                ?? display.currentSpaceID
             guard let currentIndex = display.spaces
-                .firstIndex(where: { $0.id == display.currentSpaceID })
+                .firstIndex(where: { $0.id == currentID })
             else {
                 DispatchQueue.main.async { completion(.failure(.spaceNotFound)) }
                 return
@@ -172,6 +233,15 @@ final class SpaceSwitchEngine {
             // Walk one Space at a time, waiting for each transition to settle.
             // Stepping blindly would drop presses during the animation.
             for _ in 0..<abs(delta) {
+                // Before every press, not merely before the first: a walk of
+                // several Spaces takes seconds, and the user can reopen the panel
+                // or open Settings halfway through it. Stopping here is safe as
+                // well as prompt — the previous step has already settled, so the
+                // display is left showing a Space rather than mid-animation.
+                if cancellation.isCancelled {
+                    DispatchQueue.main.async { completion(.failure(.cancelled)) }
+                    return
+                }
                 let before = self.bridge.currentSpace(onDisplay: display.id)
                     ?? self.bridge.activeSpaceID()
                 let error = self.sendControlKey(keyCode)
@@ -197,7 +267,7 @@ final class SpaceSwitchEngine {
                 }
             }
         } // End of the async block performing the whole switch off the main thread
-    } // End of switchTo(space:in:completion:)
+    } // End of switchTo(space:in:cancellation:completion:)
 
     // MARK: - Mechanics
 
@@ -228,6 +298,14 @@ final class SpaceSwitchEngine {
     /// Polling is legitimate here: the transition is driven by a real Dock-level
     /// switch, so the value reflects something the compositor is actually doing —
     /// unlike the private setter, whose bookkeeping updates mean nothing.
+    ///
+    /// Deliberately *not* cancellable, unlike the walk that calls it. The press has
+    /// already gone to System Events and the Space is moving regardless; returning
+    /// early would only report a Space the compositor is in the middle of leaving,
+    /// and the next jump computes its distance from exactly that reading. The cost
+    /// is that a cancelled walk holds the serial queue until its last step settles,
+    /// which is one animation, and which any following jump would have waited for
+    /// anyway.
     private func waitForSpaceChange(from previous: UInt64, onDisplay displayID: String) {
         let deadline = Date().addingTimeInterval(SpaceSwitchEngine.arrivalTimeout)
         while Date() < deadline {

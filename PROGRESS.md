@@ -13,7 +13,7 @@ from it without any conversation history.
 | 1 | Preferences store, Settings window shell, entry points (gear, menu bar icon, ⌘,) | **done**, verified, committed |
 | 2 | General tab: configurable hotkey + open at login | **done**, verified, committed |
 | 3 | Space renaming (persistent identity + Settings list + HUD display) | **done**, verified, committed |
-| 4 | Hide the panel before the Space switch begins | not started — added to `todo.md` by the user after phase 3 |
+| 4 | Hide the panel before the Space switch begins | **done**, verified, committed |
 
 ## Phase 1 — completed
 
@@ -292,6 +292,115 @@ main-actor annotations sound with no publish loop, refreshes do not overwrite ed
 row while the list re-enumerates underneath it, and the HUD's visual truncation.
 Both need a real focused field in a real window and rest on code review.
 
+## Phase 4 — completed
+
+The user's ask, added to `todo.md` after phase 3: *"make sure that the program
+window disappears before we switch to the new space."* The panel used to ride
+through the transition animation with the desktop.
+
+**What was built**
+
+- `HUDPanel.hideNow()` — suppresses the `.utilityWindow` fade for the removal only
+  (restored immediately, so opening still fades in) and returns the window number.
+- `HUDPanel.whenOffScreen(windowNumber:then:)` — polls
+  `CGWindowListCopyWindowInfo(.optionOnScreenOnly, …)` on a `.userInteractive`
+  background queue until the window server stops listing the panel, then calls back
+  on main with `.confirmed` or `.timedOut`. The guarantee is the window server's own
+  on-screen list — not `orderOut` returning, and not `isVisible`.
+- `SwitcherController.pendingJump` — a `Jump` **reference** type holding the target
+  Space, the display snapshot from selection time, and a cancellation flag. Every
+  asynchronous hop guards on `pendingJump === jump`.
+- `SpaceSwitchEngine.Cancellation` — a lock-guarded one-way flag, safe to read off
+  the main actor, checked inside the engine's own queue before the cursor warp and
+  again **before every keypress** in a walk.
+
+**Acceptance**
+
+| Criterion | Met | Evidence |
+| --- | --- | --- |
+| `swift build` clean | yes | exit 0, zero warnings, forced full recompile, debug and release |
+| `./build.sh` produces the bundle | yes | exit 0, Developer ID signed, `codesign --verify --deep --strict` passes |
+| en/es string keys identical | yes | extracted and diffed, no difference; **48 keys each**, 1 new (`error.jumpFailed`) |
+| `.strings` files parse | yes | `plutil -lint` OK on both |
+| Panel gone before the transition | yes | see numbers below |
+| Stale jump discarded | yes | negative control reproduced the defect without the guards |
+| App launches and quits cleanly | yes | bundle launched, alive, quit cleanly, no crash report |
+
+**The measurements** — sampled in one process, off the main thread, panel visibility
+and the target display's current Space together, per `CLAUDE.md`'s testing rule that
+a single reading after the fact is misleading:
+
+- Panel gone **55.1 ms** after the keystroke; Space changed at **1118.5 ms** — the
+  panel left ~1063 ms before the transition.
+- Removal latency over 15 cycles through the jump's own path: **29.5 / 39.8 /
+  98.3 ms** min/median/max.
+- **Before this phase**, 6–67 samples per run showed the panel still composited at
+  or after the Apple Event went out (last at 162–276 ms). **After**, 0 such samples
+  in 4 of 4 runs.
+- A **main-thread** poll never observes the removal at all — 731 and 825
+  consecutive polls over 1.5 s still saw the window. This is why the wait is
+  off-main, and it is not an optimisation.
+
+**Deviations and decisions**
+
+- **The 1 s bound proceeds on expiry rather than cancelling.** A visible panel
+  during the transition is cosmetic; a hotkey that silently does nothing is a
+  functional failure. 1 s is ~7× the worst removal ever measured here (149 ms).
+  Expiry is not silent — it logs the wait and the target. `CLAUDE.md` was corrected
+  to state this weaker guarantee rather than claim removal "has to be confirmed".
+- **A cancelled mid-walk stays where it stopped, and does not retrace.** The reason
+  for stopping is that a window is now on screen, so every extra transition *is*
+  the defect this phase removes, and walking back doubles them. The check sits
+  before a keypress, after the previous step settled, so the display is always left
+  on a real Space, never mid-animation. `present()` re-enumerates on every opening,
+  so the panel lists Spaces from wherever the walk stopped — one keystroke finishes
+  the journey.
+- **`waitForSpaceChange` is deliberately not cancellable.** Bailing early would
+  report a Space the compositor is leaving, which is exactly the reading the next
+  jump measures its distance from.
+- **The starting Space is still read live after the cursor warp**, not taken from
+  the captured snapshot. Only the display *list* is captured.
+- **Failure handling changed because the panel now goes first.** Non-permission
+  failures were `NSLog`-only, which would have left the user with no panel, no Space
+  change and no explanation. They now reopen the panel with an `error.jumpFailed`
+  notice. `.automationDenied` keeps its existing alert with the System Settings
+  button. `.cancelled` reports silently.
+
+**Codex reviews** — `docs/reviews/phase4-hide-panel-before-switch.md` and
+`docs/reviews/phase4-fixes-confirmation.md`
+
+First review: three findings. (1) *High* — the reopened panel reuses the same window
+number, so an in-flight poll matched the **new** window, timed out, and fired the
+**old** jump while the panel was visibly open. (2) *High* — the 250 ms bound
+abandoned the guarantee. (3) *Medium* — a stale failure could reopen the HUD after
+the user had moved on. Fixed with the `Jump` token, the raised bound, and the token
+covering the report path.
+
+Confirmation pass: findings 1 and 3 closed, 2 partially (by design — see above),
+plus **one new High**: the token was checked before `switchTo` but the engine then
+queued its work with no cancellation check, so a stale transition could still begin,
+or continue mid-walk, underneath a newly opened panel or Settings window. Closed by
+`Cancellation`, checked before every keypress.
+
+**The negative control that proves it** — two harness bundles built from the app's
+own sources, differing *only* in the guard blocks:
+
+- *Queued jump*: with the fix, `cancelled`, display stays on Space 5. Without it,
+  `didNotArrive` 4.14 s later and **the display dragged back to Space 1** — the
+  stale transition running under the newly opened window.
+- *Mid-walk*: a two-step walk cancelled 200 ms in stops after step 1 and reports at
+  **0.64 s**; the control reports at **3.44 s**, the extra press plus its full
+  2.5 s arrival timeout.
+
+**Two testing gotchas found, now recorded in `CLAUDE.md`** — a harness must take
+focus first, because System Events delivers the key to the frontmost app (the
+user's editor was eating `Ctrl+arrow`); and a locked screen makes every scenario
+fail for reasons unrelated to the code.
+
+**Not verified headlessly** — the `.automationDenied` alert branch (Automation
+permission was not revoked to test it), and the `spaceNotFound` / `didNotArrive`
+reopen paths, which were not forced.
+
 ## Decisions taken before phase 1
 
 - **Settings is reachable two ways, both requested by the user**: a gear button
@@ -326,38 +435,31 @@ Runtime checks are manual (open the bundle, press the hotkey).
 
 ## Next action
 
-The original `todo.md` ask — shortcut, open at login, renaming — is **complete**
-through phase 3. The user has since added a line to `todo.md`, which is phase 4:
+**Everything in `todo.md` is implemented, verified and committed.** There is no
+phase 5 planned. A fresh session has nothing queued: ask the user what they want
+next rather than inventing work.
 
-> Also, make sure that the program window disappears before we switch to the new
-> space.
+What remains is **manual acceptance by a human at the keyboard**. None of it blocks
+anything; all of it is listed because it could not be verified headlessly. Run
+`build/spaceSwitcher.app` (or install it) and check:
 
-Execute **phase 4**: order the HUD panel out (and let it finish disappearing)
-*before* the Space transition starts, rather than leaving it on screen through the
-animation. Concretely:
-
-1. Find where the jump is triggered — `SpaceSwitchEngine.swift` and
-   `SwitcherController.swift` — and close the panel first, then send the Apple
-   Event.
-2. The panel joins all Spaces (`.canJoinAllSpaces`), which is exactly why it rides
-   along through the transition today. Read that part of `CLAUDE.md` before
-   changing it: the flag also exists so the panel is not dragged off the user's
-   current Space, so removing it is not the fix.
-3. Beware of ordering: `orderOut` is asynchronous with respect to the compositor.
-   Verify the panel is actually gone *before* the transition begins rather than
-   assuming the call is synchronous — and do not paper over it with a fixed sleep
-   long enough to be felt.
-
-Two manual checks still outstanding from earlier phases, both needing a human at
-the keyboard (they block nothing):
-
-- Phase 2 — recording a shortcut, cancelling one with Escape, "restore default",
-  and the login item round trip including the return from System Settings. Note
+- **Phase 2** — record a shortcut; cancel one with Escape; "restore default"; the
+  login item round trip including returning from System Settings. Note that
   "a combination another app owns is refused" is *not* testable: Carbon does not
   refuse those (see `CLAUDE.md`).
-- Phase 3 — keeping focus in a name field while the Spaces list re-enumerates.
+- **Phase 3** — keep focus in a Space name field while the list re-enumerates
+  (switch away to another app and back); confirm the edit stays on its own row.
+  Also confirm a very long name truncates in the HUD rather than reshaping it.
+- **Phase 4** — the actual point of the phase: press the hotkey, choose a Space,
+  and confirm the panel is gone before the animation starts. Then reopen the panel
+  immediately after choosing and confirm no stale jump fires.
+- **Not tested anywhere** — the `.automationDenied` alert (Automation permission was
+  never revoked to force it), and the `spaceNotFound` / `didNotArrive` reopen paths.
 
-New strings go in **both** `.lproj/Localizable.strings` files.
+If anything new is picked up, note that new strings go in **both**
+`.lproj/Localizable.strings` files, and that `CLAUDE.md` is the record of what has
+been verified empirically on this machine — read it before touching the Spaces or
+switching code.
 
 ## Key paths
 
@@ -383,5 +485,5 @@ New strings go in **both** `.lproj/Localizable.strings` files.
   (`c74de0a..99a5fe8`), review fixes included in the same commit.
 - Base before this work: `7be5f65`.
 
-`todo.md` carries the user's phase-4 line and is **deliberately left uncommitted**
-so it is not mixed into the phase-3 commit; commit it with phase 4.
+- Phase 4: commit recorded below once made; both review rounds' fixes included,
+  along with `todo.md` (the user's phase-4 line) and the two review transcripts.

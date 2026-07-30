@@ -145,6 +145,12 @@
    requested, the prompt appears on the first jump and no warning is needed. */
 "error.automation" = "spaceSwitcher no tiene permiso para controlar System Events, así que no puede cambiar de espacio. Concédelo en Privacidad y seguridad › Automatización.";
 
+/* Warning banner shown above the Space list when the panel has been brought back
+   after a jump that did not go through, for any reason other than permission. The
+   panel is hidden before the switch starts, so without this the failure would leave
+   nothing on screen and nothing said. */
+"error.jumpFailed" = "Ese salto no ha llegado a hacerse. Los espacios de abajo se acaban de volver a leer, así que elige uno y vuelve a intentarlo.";
+
 /* Title of the alert shown after a jump failed for lack of permission. */
 "alert.automation.title" = "Se necesita permiso para cambiar de espacio";
 

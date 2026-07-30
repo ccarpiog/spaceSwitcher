@@ -145,6 +145,12 @@
    requested, the prompt appears on the first jump and no warning is needed. */
 "error.automation" = "spaceSwitcher is not allowed to control System Events, so it cannot switch Spaces. Allow it under Privacy & Security › Automation.";
 
+/* Warning banner shown above the Space list when the panel has been brought back
+   after a jump that did not go through, for any reason other than permission. The
+   panel is hidden before the switch starts, so without this the failure would leave
+   nothing on screen and nothing said. */
+"error.jumpFailed" = "That jump did not go through. The Spaces below have just been read again, so pick one and try once more.";
+
 /* Title of the alert shown after a jump failed for lack of permission. */
 "alert.automation.title" = "Permission needed to switch Spaces";
 
