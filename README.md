@@ -41,10 +41,12 @@ For a signed, notarized build suitable for copying to another Mac:
 ## Permissions
 
 On the first jump macOS will ask for permission to control **System Events**.
-Allow it — that is the mechanism the app uses to switch Spaces (see below). Until
-then the panel still opens and lists Spaces correctly; only jumping is blocked.
+Allow it — that is the mechanism the app uses to switch Spaces (see below).
 
-Listing Spaces needs no permission at all.
+Listing Spaces needs no permission at all, so the panel always opens and always
+shows the full list. A permission warning, if one appears, sits *above* the list
+rather than replacing it — the Spaces stay visible and selectable, because
+selecting one is what triggers the permission prompt in the first place.
 
 ## Keys
 

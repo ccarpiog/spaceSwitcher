@@ -18,8 +18,10 @@ final class SpaceSwitchEngine {
 
     /// Why a switch could not be completed.
     enum SwitchError: Error {
-        /// The user has not granted (or has denied) Automation access to System Events.
+        /// The user explicitly refused Automation access to System Events.
         case automationDenied
+        /// The Apple Event failed for some reason other than a refusal.
+        case appleEventFailed(status: OSStatus)
         /// The Space vanished between enumeration and the switch.
         case spaceNotFound
         /// The keypresses were sent but the Space never became active.
@@ -44,12 +46,36 @@ final class SpaceSwitchEngine {
 
     // MARK: - Permission
 
-    /// Whether System Events automation is already permitted.
+    /// Where the user stands on letting this app drive System Events.
     ///
-    /// Uses `AEDeterminePermissionToAutomateTarget` with `askUserIfNeeded: false`
-    /// so the panel can show its status without triggering a TCC prompt at an
-    /// awkward moment.
-    func automationPermission(prompting: Bool = false) -> Bool {
+    /// The middle case matters: an app that has never sent an Apple Event is not
+    /// denied, it simply has not asked yet. Collapsing the two into a boolean
+    /// makes a first launch look refused.
+    enum AutomationStatus {
+        /// Allowed — jumping will work.
+        case granted
+        /// Never requested. The prompt appears on the first jump; nothing to warn about.
+        case notDetermined
+        /// Actively refused, or blocked. Jumping cannot work until this changes.
+        case denied
+    }
+
+    /// `AEDeterminePermissionToAutomateTarget` returns this when consent has not
+    /// been sought yet. Spelled out because the symbol is not surfaced to Swift.
+    private static let errWouldRequireConsent: OSStatus = -1744
+    /// Returned when the target app is not running. System Events is a faceless
+    /// background app that is usually *not* running, so this is the common case —
+    /// and it says nothing whatsoever about permission.
+    private static let errProcNotFound: OSStatus = -600
+    /// The only code that actually means the user refused.
+    static let errEventNotPermitted: OSStatus = -1743
+
+    /// Checks whether System Events automation is permitted.
+    ///
+    /// - Parameter prompting: `false` to look without triggering a TCC prompt, so
+    ///   the panel can decide what to show. `true` when a jump is actually being
+    ///   attempted and the prompt is expected.
+    func automationStatus(prompting: Bool = false) -> AutomationStatus {
         var target = AEAddressDesc()
         // `AECreateDesc` returns OSErr (Int16), not OSStatus (Int32), so it is
         // compared against a literal rather than `noErr`.
@@ -58,13 +84,28 @@ final class SpaceSwitchEngine {
                                    bundleID,
                                    bundleID.count,
                                    &target)
-        guard created == 0 else { return false }
+        guard created == 0 else { return .denied }
         defer { AEDisposeDesc(&target) }
 
         let status = AEDeterminePermissionToAutomateTarget(
             &target, typeWildCard, typeWildCard, prompting)
-        return status == noErr
-    } // End of automationPermission(prompting:)
+        switch status {
+        case noErr:
+            return .granted
+        case SpaceSwitchEngine.errEventNotPermitted:
+            return .denied
+        case SpaceSwitchEngine.errWouldRequireConsent,
+             SpaceSwitchEngine.errProcNotFound:
+            return .notDetermined
+        default:
+            // Anything else is inconclusive. Treated as "not asked yet" rather than
+            // as a refusal: warning the user about a permission they have not
+            // actually been denied is worse than staying quiet, since the real
+            // prompt appears on the first jump anyway.
+            NSLog("spaceSwitcher: inconclusive automation status \(status); assuming not yet requested")
+            return .notDetermined
+        }
+    } // End of automationStatus(prompting:)
 
     // MARK: - Switching
 
@@ -96,10 +137,10 @@ final class SpaceSwitchEngine {
         queue.async { [weak self] in
             guard let self else { return }
 
-            guard self.automationPermission(prompting: true) else {
-                DispatchQueue.main.async { completion(.failure(.automationDenied)) }
-                return
-            }
+            // No permission pre-check here. Sending the event is itself the check:
+            // it launches System Events if needed and raises the TCC prompt at a
+            // moment the user understands. Pre-checking would report a refusal
+            // whenever System Events merely happened not to be running.
 
             // With "Displays have separate Spaces" on, relative navigation acts
             // on whichever display has focus. Warping the cursor onto the target
@@ -124,8 +165,14 @@ final class SpaceSwitchEngine {
             // Stepping blindly would drop presses during the animation.
             for _ in 0..<abs(delta) {
                 let before = self.bridge.activeSpaceID()
-                guard self.sendControlKey(keyCode) else {
-                    DispatchQueue.main.async { completion(.failure(.automationDenied)) }
+                let error = self.sendControlKey(keyCode)
+                if error != 0 {
+                    // Only an explicit refusal is reported as such; any other
+                    // failure is a genuine error worth surfacing differently.
+                    let failure: SwitchError = error == SpaceSwitchEngine.errEventNotPermitted
+                        ? .automationDenied
+                        : .appleEventFailed(status: error)
+                    DispatchQueue.main.async { completion(.failure(failure)) }
                     return
                 }
                 self.waitForSpaceChange(from: before)
@@ -150,19 +197,19 @@ final class SpaceSwitchEngine {
     /// process-launch latency to every step. A fresh instance per call keeps this
     /// safe on the serial queue it runs on.
     ///
-    /// - Returns: `false` when the Apple Event was refused, which in practice
-    ///   means Automation permission is missing.
-    private func sendControlKey(_ keyCode: Int) -> Bool {
+    /// - Returns: `0` on success, otherwise the Apple Event error number. `-1743`
+    ///   means the user refused; anything else is some other failure.
+    private func sendControlKey(_ keyCode: Int) -> OSStatus {
         let source = "tell application \"System Events\" to key code \(keyCode) using control down"
-        guard let script = NSAppleScript(source: source) else { return false }
+        guard let script = NSAppleScript(source: source) else { return -1 }
         var error: NSDictionary?
         script.executeAndReturnError(&error)
         if let error {
-            let code = error[NSAppleScript.errorNumber] as? Int ?? 0
+            let code = OSStatus(error[NSAppleScript.errorNumber] as? Int ?? -1)
             NSLog("spaceSwitcher: System Events key code failed (\(code)): \(error)")
-            return false
+            return code
         }
-        return true
+        return 0
     } // End of sendControlKey(_:)
 
     /// Blocks until the active Space differs from `from`, or the timeout expires.

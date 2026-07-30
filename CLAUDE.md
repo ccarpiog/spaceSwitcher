@@ -68,6 +68,37 @@ symbolic hotkey ids 79/80), are **enabled by default**. The direct-jump shortcut
 `com.apple.symbolichotkeys` by default, i.e. disabled** — so direct jumping is
 not available unless the user enables it. Hence relative navigation.
 
+### Automation permission cannot be reduced to a boolean
+
+`AEDeterminePermissionToAutomateTarget` has three outcomes that matter, and
+treating "not `noErr`" as "denied" produces a false warning on a perfectly
+healthy system:
+
+| Code | Meaning | Correct handling |
+| --- | --- | --- |
+| `noErr` | granted | jump freely |
+| `-1743` `errAEEventNotPermitted` | **actually refused** | the only case worth warning about |
+| `-1744` | consent not yet requested | stay quiet; the prompt appears on the first jump |
+| `-600` `procNotFound` | **System Events is not running** | stay quiet; says nothing about permission |
+
+`-600` is the common case, not an edge case: System Events is a faceless
+background app that is usually not running, and merely querying it does not
+launch it. Sending the Apple Event does.
+
+Consequently the jump path **must not pre-check permission**. Sending the event
+is itself the check — it launches System Events and raises the TCC prompt at a
+moment the user understands. A pre-check reports a bogus refusal whenever System
+Events simply happened to be idle. Classify the *error returned by the event*,
+not a speculative query made beforehand.
+
+### UI rule that follows from the above
+
+A permission warning must never replace the Space list. An earlier version showed
+the warning *instead of* the list, which deadlocked the panel: it told the user
+to choose a Space in order to trigger the permission prompt, while hiding every
+Space they could choose. Only an unreadable Spaces layout justifies blanking the
+list.
+
 ### Testing gotcha
 
 macOS pulls the active Space back to wherever the frontmost app's window lives.

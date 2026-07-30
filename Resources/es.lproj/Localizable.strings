@@ -27,8 +27,10 @@
    which means this macOS release changed them. */
 "error.unsupported" = "Esta versión de macOS no expone la información de espacios que spaceSwitcher necesita. Habrá que actualizar la app.";
 
-/* Shown in the panel when Automation permission for System Events is missing. */
-"error.automation" = "spaceSwitcher necesita permiso para controlar System Events antes de poder cambiar de espacio. Al elegir un espacio se solicitará.";
+/* Warning banner shown above the Space list when Automation permission has been
+   refused. Only shown for an outright refusal: if permission has simply never been
+   requested, the prompt appears on the first jump and no warning is needed. */
+"error.automation" = "spaceSwitcher no tiene permiso para controlar System Events, así que no puede cambiar de espacio. Concédelo en Privacidad y seguridad › Automatización.";
 
 /* Title of the alert shown after a jump failed for lack of permission. */
 "alert.automation.title" = "Se necesita permiso para cambiar de espacio";

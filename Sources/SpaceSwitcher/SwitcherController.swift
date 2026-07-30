@@ -39,6 +39,33 @@ final class SwitcherController {
         key.onPress = { [weak self] in self?.toggle() }
         hotKey = key
 
+        // Two notification systems, because they are genuinely distinct and each
+        // is the natural choice for a different caller:
+        //
+        //   Darwin      — what `notifyutil -p` posts, so shell scripts work.
+        //   Distributed — what other apps and Shortcuts post via Cocoa.
+        //
+        // Registering only one silently ignores half the callers.
+        // `notify_register_dispatch` is not exposed to Swift, so the Darwin centre
+        // is reached through CoreFoundation. Its callback is a C function pointer
+        // and cannot capture context, hence the round trip through an opaque
+        // pointer to self.
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            { _, observer, _, _, _ in
+                guard let observer else { return }
+                let controller = Unmanaged<SwitcherController>
+                    .fromOpaque(observer).takeUnretainedValue()
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { controller.toggle() }
+                }
+            },
+            SwitcherController.toggleNotification as CFString,
+            nil,
+            .deliverImmediately
+        )
+
         DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name(SwitcherController.toggleNotification),
             object: nil,
@@ -61,23 +88,28 @@ final class SwitcherController {
 
     /// Refreshes the Space list and brings the panel up.
     private func present() {
+        // The only case with genuinely nothing to show: the Spaces layout is
+        // unreadable, so there is no list to fall back on.
         guard SkyLightBridge.shared.isAvailable else {
-            model.message = NSLocalizedString(
+            model.fatalMessage = NSLocalizedString(
                 "error.unsupported",
                 comment: "Shown when the private SkyLight symbols cannot be resolved")
             showPanel()
             return
         }
 
-        model.message = nil
+        model.fatalMessage = nil
         model.displays = enumerator.enumerate()
         model.selectActiveSpace()
 
-        if !engine.automationPermission(prompting: false) {
-            model.message = NSLocalizedString(
-                "error.automation",
-                comment: "Shown when Automation permission for System Events is missing")
-        }
+        // Only an outright refusal is worth a warning. `.notDetermined` just means
+        // the app has not asked yet, and the prompt will appear on the first jump —
+        // warning about it would make a normal first launch look broken.
+        model.notice = engine.automationStatus(prompting: false) == .denied
+            ? NSLocalizedString("error.automation",
+                                comment: "Shown when Automation permission has been refused")
+            : nil
+
         showPanel()
     } // End of present()
 
@@ -172,8 +204,12 @@ final class SwitcherController {
     } // End of handle(_:)
 
     /// Acts on whatever row is currently highlighted.
+    ///
+    /// Deliberately not gated on `notice`: a permission warning must not stop the
+    /// user selecting a Space, since attempting the jump is what triggers the
+    /// permission prompt in the first place.
     private func commitSelection() {
-        guard model.message == nil,
+        guard model.fatalMessage == nil,
               model.selection < model.rows.count
         else { return }
         choose(model.rows[model.selection])
@@ -186,6 +222,7 @@ final class SwitcherController {
     /// The panel goes away first so its fade does not overlap the Space
     /// transition, which would look like two competing animations.
     private func choose(_ row: HUDViewModel.Row) {
+        guard model.fatalMessage == nil else { return }
         dismiss(restoringFocus: false)
 
         engine.switchTo(space: row.space, in: model.displays) { result in
@@ -215,6 +252,8 @@ final class SwitcherController {
                     "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!
                 NSWorkspace.shared.open(url)
             }
+        case .appleEventFailed(let status):
+            NSLog("spaceSwitcher: the Apple Event driving System Events failed (\(status))")
         case .spaceNotFound:
             NSLog("spaceSwitcher: the target Space disappeared before the jump")
         case .didNotArrive(let expected, let actual):

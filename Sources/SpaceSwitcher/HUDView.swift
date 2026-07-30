@@ -6,8 +6,13 @@ final class HUDViewModel: ObservableObject {
     @Published var displays: [DisplaySpaces] = []
     /// Index into `rows` of the highlighted entry.
     @Published var selection: Int = 0
-    /// Non-nil when something needs explaining to the user, e.g. a missing permission.
-    @Published var message: String?
+    /// A problem that leaves nothing to show, so it replaces the list entirely.
+    /// Only set when the Spaces layout cannot be read at all.
+    @Published var fatalMessage: String?
+    /// A warning shown *above* the list without hiding it. The Spaces are still
+    /// listed and still selectable — anything that merely affects jumping belongs
+    /// here, never in `fatalMessage`.
+    @Published var notice: String?
 
     /// One selectable line: a Space plus the display it belongs to.
     struct Row: Identifiable {
@@ -62,14 +67,20 @@ struct HUDView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let message = model.message {
-                Text(message)
+            if let fatalMessage = model.fatalMessage {
+                Text(fatalMessage)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 14)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
+                // A notice never replaces the list: the Spaces stay visible and
+                // selectable, because a warning about jumping is useless if it
+                // hides the thing the user came here to pick.
+                if let notice = model.notice {
+                    noticeBanner(notice)
+                }
                 spaceList
             }
             Divider().opacity(0.5)
@@ -81,6 +92,23 @@ struct HUDView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.white.opacity(0.12), lineWidth: 1)
         )
+    }
+
+    /// A warning strip above the list, visually distinct but not blocking.
+    private func noticeBanner(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.orange)
+                .padding(.top, 1)
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 11)
+        .padding(.bottom, 3)
     }
 
     /// The scrollable list of Spaces, grouped by display when there is more than one.
