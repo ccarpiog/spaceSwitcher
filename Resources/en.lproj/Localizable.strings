@@ -23,6 +23,34 @@
    the only way out. */
 "hud.hint.quit" = "quit";
 
+/* Tooltip and accessibility label of the gear button in the corner of the panel. */
+"hud.settings" = "Open settings";
+
+/* Title of the Settings window. */
+"settings.title" = "spaceSwitcher settings";
+
+/* Name of the tab holding the settings that affect the whole app. */
+"settings.tab.general" = "General";
+
+/* Label of the toggle that shows or hides the menu bar icon. */
+"settings.general.menuBarIcon" = "Show icon in the menu bar";
+
+/* Note under that toggle. Worth stating explicitly: the menu bar icon is where
+   the Quit command lives. */
+"settings.general.menuBarIcon.detail" = "The menu bar icon opens the Spaces panel and these settings, and is where you quit spaceSwitcher.";
+
+/* Accessibility description of the menu bar icon itself. */
+"menu.icon.description" = "spaceSwitcher";
+
+/* Menu bar entry that brings the Spaces panel up. */
+"menu.showPanel" = "Show Spaces";
+
+/* Menu bar entry that opens the Settings window. */
+"menu.settings" = "Settings…";
+
+/* Menu bar entry that quits the app. */
+"menu.quit" = "Quit spaceSwitcher";
+
 /* Shown in the panel when the private SkyLight symbols could not be resolved,
    which means this macOS release changed them. */
 "error.unsupported" = "This version of macOS does not expose the Spaces information spaceSwitcher needs. The app will need updating.";

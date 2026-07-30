@@ -76,6 +76,8 @@ struct HUDView: View {
     @ObservedObject var model: HUDViewModel
     /// Invoked with the chosen row when the user commits a selection.
     var onChoose: (HUDViewModel.Row) -> Void
+    /// Invoked when the user asks for the Settings window.
+    var onOpenSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -153,9 +155,31 @@ struct HUDView: View {
             hint("esc", NSLocalizedString("hud.hint.cancel", comment: "Escape closes the panel"))
             hint("q", NSLocalizedString("hud.hint.quit", comment: "Q quits the app"))
             Spacer()
+            settingsButton
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 9)
+    }
+
+    /// The way into Settings from the panel.
+    ///
+    /// Just an icon, tucked into the corner of the hint bar: the panel exists to be
+    /// dismissed in a keystroke, and a labelled button would compete for attention
+    /// with the Spaces the user actually came here to pick.
+    private var settingsButton: some View {
+        Button(action: onOpenSettings) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(settingsLabel)
+        .accessibilityLabel(settingsLabel)
+    }
+
+    /// Shared title for the gear button's tooltip and its accessibility label.
+    private var settingsLabel: String {
+        NSLocalizedString("hud.settings", comment: "Gear button in the panel that opens Settings")
     }
 
     /// One key-plus-label pair in the hint bar.

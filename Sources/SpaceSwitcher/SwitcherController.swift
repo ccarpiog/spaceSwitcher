@@ -9,6 +9,7 @@ final class SwitcherController {
     private let enumerator = SpaceEnumerator()
     private let engine = SpaceSwitchEngine()
     private let model = HUDViewModel()
+    private let menuBar = MenuBarController(preferences: .shared)
 
     private var hotKey: GlobalHotKey?
     private var panel: HUDPanel?
@@ -38,6 +39,12 @@ final class SwitcherController {
                                modifiers: SwitcherController.defaultModifiers)
         key.onPress = { [weak self] in self?.toggle() }
         hotKey = key
+
+        // The status item comes and goes with the preference on its own; all it
+        // needs from here is what its entries should do.
+        menuBar.onShowPanel = { [weak self] in self?.present() }
+        menuBar.onOpenSettings = { [weak self] in self?.openSettings() }
+        menuBar.start()
 
         // Two notification systems, because they are genuinely distinct and each
         // is the natural choice for a different caller:
@@ -119,9 +126,10 @@ final class SwitcherController {
     /// windows receive key events, so a non-activating panel alone would render
     /// but never respond to the keyboard.
     private func showPanel() {
-        let view = HUDView(model: model) { [weak self] row in
-            self?.choose(row)
-        }
+        let view = HUDView(
+            model: model,
+            onChoose: { [weak self] row in self?.choose(row) },
+            onOpenSettings: { [weak self] in self?.openSettings() })
         let hosting = NSHostingView(rootView: view)
 
         let existing = panel ?? HUDPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 200))
@@ -151,6 +159,18 @@ final class SwitcherController {
         previousApp = nil
     }
 
+    // MARK: - Settings
+
+    /// Opens the Settings window, closing the panel on the way if it is up.
+    ///
+    /// Focus is deliberately not restored to the previous app: it is about to go to
+    /// the Settings window instead, and handing it back first would raise the other
+    /// app over the window that was just asked for.
+    private func openSettings() {
+        dismiss(restoringFocus: false)
+        SettingsWindowController.shared.show()
+    }
+
     // MARK: - Keyboard handling
 
     /// Starts intercepting key presses while the panel is up.
@@ -172,6 +192,20 @@ final class SwitcherController {
     ///
     /// - Returns: `true` when the event was consumed and must not propagate.
     private func handle(_ event: NSEvent) -> Bool {
+        // The monitor is app-wide, so it has to stay out of the way of the app's
+        // other windows: with Settings in front, `q` is a letter someone is typing,
+        // not a request to quit. A nil key window is left alone rather than
+        // treated as "not the panel" — that is the state the panel itself is in
+        // for the instant between being ordered front and becoming key.
+        if let keyWindow = NSApp.keyWindow, keyWindow !== panel { return false }
+
+        // `⌘,` has to be recognised here. An `.accessory` app has no menu bar, so
+        // there is no Settings menu item to own the shortcut.
+        if event.isSettingsShortcut {
+            openSettings()
+            return true
+        }
+
         switch Int(event.keyCode) {
         case kVK_DownArrow:
             model.moveSelection(by: 1)
