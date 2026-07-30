@@ -113,3 +113,7 @@ misbehaving.
   to a Space on another display warps the mouse cursor there first, because
   relative navigation applies to whichever display has focus.
 - Not sandboxed, so it can never be distributed on the Mac App Store.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
