@@ -11,7 +11,7 @@ from it without any conversation history.
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1 | Preferences store, Settings window shell, entry points (gear, menu bar icon, ⌘,) | **done**, verified, committed |
-| 2 | General tab: configurable hotkey + open at login | **done**, verified, uncommitted |
+| 2 | General tab: configurable hotkey + open at login | **done**, verified, committed |
 | 3 | Space renaming (persistent identity + Settings list + HUD display) | not started |
 
 ## Phase 1 — completed
@@ -260,5 +260,8 @@ New strings go in **both** `.lproj/Localizable.strings` files.
 
 - Phase 1: commit `c62bcf5` on `main`, pushed to `origin` successfully
   (`7be5f65..c62bcf5`). Checkpoint recorded in `8a546ae`.
-- Phase 2: uncommitted, on top of `8a546ae`.
+- Phase 2: commit `1660547` on `main`, pushed to `origin` successfully
+  (`8a546ae..1660547`), review fixes included. Tree clean apart from the user's
+  own untracked icon files (`icon_prompts.md`, `*.png`) — **not part of this work,
+  do not commit them**.
 - Base before this work: `7be5f65`.
