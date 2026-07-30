@@ -379,8 +379,8 @@ New strings go in **both** `.lproj/Localizable.strings` files.
 - Phase 2: commit `1660547` on `main`, pushed to `origin` successfully
   (`8a546ae..1660547`), review fixes included. Checkpoint recorded in `dd94564`.
 - App and menu bar icons: commit `c74de0a`, pushed (`dd94564..c74de0a`).
-- Phase 3: see the commit recorded below this line once made; review fixes
-  included in the same commit.
+- Phase 3: commit `99a5fe8` on `main`, pushed to `origin` successfully
+  (`c74de0a..99a5fe8`), review fixes included in the same commit.
 - Base before this work: `7be5f65`.
 
 `todo.md` carries the user's phase-4 line and is **deliberately left uncommitted**
