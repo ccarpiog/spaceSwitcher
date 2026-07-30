@@ -79,6 +79,49 @@ final class MenuBarController: NSObject {
         setVisible(preferenceIsOn || isForcedVisible)
     }
 
+    /// Builds the status item's icon from the bundled template image.
+    ///
+    /// Marking it as a template is what lets macOS recolour it: without the
+    /// flag the glyph stays flat black and vanishes against a dark menu bar.
+    ///
+    /// The image is copied before anything is set on it. `NSImage(named:)`
+    /// hands back a *cached, shared* instance, so mutating it in place would
+    /// make the size, the template flag and the accessibility description
+    /// permanent for every later user of that name — a menu item or a settings
+    /// window asking for the same image would silently inherit them.
+    ///
+    /// The height is pinned to the menu bar's 18 pt rather than trusting the
+    /// file, so regenerating the artwork at a different resolution cannot
+    /// change how large the icon appears. The width is derived from the
+    /// image's own ratio and deliberately *not* rounded: the two PNGs are an
+    /// exact 1x/2x pair, so the ratio already lands on whole pixels, and
+    /// rounding would reintroduce the fractional scaling it looks like it is
+    /// avoiding.
+    ///
+    /// Falls back to the system symbol if the image is missing from the
+    /// bundle, which keeps a hand-assembled or partially copied bundle usable
+    /// instead of leaving an invisible, unclickable status item.
+    ///
+    /// - Returns: the image for the status button, or nil if neither source resolves.
+    private func makeStatusIcon() -> NSImage? {
+        let description = NSLocalizedString(
+            "menu.icon.description",
+            comment: "Accessibility description of the menu bar icon")
+
+        guard let shared = NSImage(named: "MenuBarIcon"),
+              let image = shared.copy() as? NSImage else {
+            return NSImage(systemSymbolName: "rectangle.3.group",
+                           accessibilityDescription: description)
+        }
+
+        let height: CGFloat = 18
+        let aspect = image.size.height > 0 ? image.size.width / image.size.height : 1
+        image.size = NSSize(width: height * aspect, height: height)
+        image.isTemplate = true
+        image.accessibilityDescription = description
+        return image
+    } // End of makeStatusIcon()
+
     /// Creates or tears down the status item so the toggle takes effect
     /// immediately. Idempotent, since the publisher also fires on subscription.
     ///
@@ -88,11 +131,7 @@ final class MenuBarController: NSObject {
 
         if isVisible {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            item.button?.image = NSImage(
-                systemSymbolName: "rectangle.3.group",
-                accessibilityDescription: NSLocalizedString(
-                    "menu.icon.description",
-                    comment: "Accessibility description of the menu bar icon"))
+            item.button?.image = makeStatusIcon()
             item.menu = makeMenu()
             statusItem = item
         } else if let statusItem {

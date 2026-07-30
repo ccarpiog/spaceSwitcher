@@ -25,6 +25,25 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 cp "${BUILD_DIR}/${BINARY_NAME}" "${APP_BUNDLE}/Contents/MacOS/${BINARY_NAME}"
 cp "Resources/Info.plist" "${APP_BUNDLE}/Contents/Info.plist"
 
+# The .icns is a build product rather than a source file, so it is regenerated
+# whenever the master is newer. Replacing the artwork and forgetting to rebuild
+# the icon would otherwise ship the previous one silently. sips and iconutil are
+# part of macOS, so this needs nothing installed — unlike the menu bar PNGs,
+# which are committed because generating those needs Pillow.
+if [ ! -f "Resources/spaceSwitcher.icns" ] \
+    || [ "Resources/AppIcon-1024.png" -nt "Resources/spaceSwitcher.icns" ]; then
+    echo "==> Regenerating app icon from master"
+    ./scripts/make-app-icon.sh
+fi
+
+# Icons. The .icns is named by CFBundleIconFile in Info.plist; the menu bar
+# template is found by NSImage(named:), which pairs the two PNGs into one image
+# by their @2x suffix. Only these belong in the bundle — AppIcon-1024.png and
+# MenuBarIcon.svg are the editable masters and stay in the source tree.
+cp "Resources/spaceSwitcher.icns" "${APP_BUNDLE}/Contents/Resources/"
+cp "Resources/MenuBarIcon.png" "Resources/MenuBarIcon@2x.png" \
+    "${APP_BUNDLE}/Contents/Resources/"
+
 # Every Resources/*.lproj becomes an available language. Adding a translation
 # means adding a directory here and nothing else.
 for lproj in Resources/*.lproj; do

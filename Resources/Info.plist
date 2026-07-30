@@ -18,6 +18,8 @@
 	<string>1</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleIconFile</key>
+	<string>spaceSwitcher</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>LSMinimumSystemVersion</key>

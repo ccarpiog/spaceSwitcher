@@ -81,6 +81,25 @@ copying `Resources/en.lproj/Localizable.strings` to a new `<lang>.lproj`
 directory and translating it — `build.sh` bundles every `.lproj` it finds, and no
 code changes are needed.
 
+## Icons
+
+| | Master | Rebuild with |
+| --- | --- | --- |
+| App icon | `Resources/AppIcon-1024.png` | `./scripts/make-app-icon.sh` |
+| Menu bar icon | `Resources/MenuBarIcon.svg` | `python3 scripts/make-menubar-icon.py` |
+
+The `.icns` is a build product and is not committed: `build.sh` rebuilds it
+whenever the 1024 × 1024 master is newer, so replacing the artwork is enough.
+The menu bar PNGs *are* committed, because regenerating those needs Pillow and
+building the app should not.
+
+The menu bar icon is a **template image** — pure black on transparency, which is
+what lets macOS invert it for light and dark menu bars. It is drawn from the
+geometry constants at the top of `scripts/make-menubar-icon.py` rather than
+hand-drawn, so the SVG master and both PNGs cannot drift apart. Anything that
+replaces it must keep the black-on-transparency contract; grey or colour breaks
+the inversion and the icon disappears against one of the two menu bars.
+
 ## How it works, and why it works that way
 
 There is no public API for Spaces. Everything here rests on empirical testing

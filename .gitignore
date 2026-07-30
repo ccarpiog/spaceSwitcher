@@ -6,6 +6,12 @@ Package.resolved
 # Assembled app bundle and release artifacts
 build/
 
+# Generated from Resources/AppIcon-1024.png by scripts/make-app-icon.sh, which
+# build.sh runs whenever the master is newer. The menu bar PNGs are *not*
+# ignored: regenerating those needs Pillow, which is not guaranteed to be
+# installed, so they are committed alongside their SVG master.
+Resources/spaceSwitcher.icns
+
 # Notarization output (may contain submission ids)
 notarization.json
 notarization-log.json
