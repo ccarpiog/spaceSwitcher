@@ -1,0 +1,15 @@
+# Swift Package Manager build products
+.build/
+.swiftpm/
+Package.resolved
+
+# Assembled app bundle and release artifacts
+build/
+
+# Notarization output (may contain submission ids)
+notarization.json
+notarization-log.json
+*.zip
+
+# macOS
+.DS_Store

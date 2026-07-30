@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>spaceSwitcher</string>
+	<key>CFBundleDisplayName</key>
+	<string>spaceSwitcher</string>
+	<key>CFBundleExecutable</key>
+	<string>SpaceSwitcher</string>
+	<key>CFBundleIdentifier</key>
+	<string>cc.carpio.spaceSwitcher</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<!-- No dock icon and no menu bar: the global hotkey is the entire interface. -->
+	<key>LSUIElement</key>
+	<true/>
+	<!-- Required: the jump is performed by driving System Events, because every
+	     direct route to switching Spaces either fails silently or corrupts the
+	     compositor. See CLAUDE.md. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>spaceSwitcher asks System Events to press the Mission Control shortcut that moves between Spaces. This is the only reliable way to switch Spaces on macOS.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string></string>
+</dict>
+</plist>

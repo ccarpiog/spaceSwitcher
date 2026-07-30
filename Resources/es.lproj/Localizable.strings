@@ -1,0 +1,43 @@
+/* Title of a normal Mission Control desktop; %d is its number on that display. */
+"space.desktop.number" = "Escritorio %d";
+
+/* Shown in place of the app list for a Space that has no windows on it. */
+"space.empty" = "vacío";
+
+/* Small marker on the Space that is currently on screen. */
+"space.current" = "actual";
+
+/* Fallback heading for a display whose name could not be resolved. */
+"display.unknown" = "Pantalla desconocida";
+
+/* Hint bar: the arrow keys move the highlight. */
+"hud.hint.select" = "seleccionar";
+
+/* Hint bar: Return jumps to the highlighted Space. */
+"hud.hint.jump" = "ir";
+
+/* Hint bar: Escape closes the panel without jumping. */
+"hud.hint.cancel" = "cerrar";
+
+/* Hint bar: Q quits the app. There is no dock icon or menu bar item, so this is
+   the only way out. */
+"hud.hint.quit" = "salir";
+
+/* Shown in the panel when the private SkyLight symbols could not be resolved,
+   which means this macOS release changed them. */
+"error.unsupported" = "Esta versión de macOS no expone la información de espacios que spaceSwitcher necesita. Habrá que actualizar la app.";
+
+/* Shown in the panel when Automation permission for System Events is missing. */
+"error.automation" = "spaceSwitcher necesita permiso para controlar System Events antes de poder cambiar de espacio. Al elegir un espacio se solicitará.";
+
+/* Title of the alert shown after a jump failed for lack of permission. */
+"alert.automation.title" = "Se necesita permiso para cambiar de espacio";
+
+/* Body of that alert. */
+"alert.automation.body" = "spaceSwitcher cambia de espacio pidiendo a System Events que pulse el atajo de Mission Control. Concede el permiso en Privacidad y seguridad › Automatización y vuelve a intentarlo.";
+
+/* Button that opens the relevant System Settings pane. */
+"alert.openSettings" = "Abrir Ajustes del Sistema";
+
+/* Button that dismisses the alert. */
+"alert.cancel" = "Cancelar";

@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:spaceSwitcher}",
+            "name": "Debug SpaceSwitcher",
+            "target": "SpaceSwitcher",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug SpaceSwitcher"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:spaceSwitcher}",
+            "name": "Release SpaceSwitcher",
+            "target": "SpaceSwitcher",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release SpaceSwitcher"
+        }
+    ]
+}

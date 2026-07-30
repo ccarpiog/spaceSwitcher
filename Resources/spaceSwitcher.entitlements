@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Required. Under the hardened runtime an app cannot send Apple Events at all
+	  without this entitlement, no matter what the user has allowed in Privacy &
+	  Security. spaceSwitcher switches Spaces by asking System Events to press the
+	  Mission Control shortcut, so without this the app builds, launches, lists
+	  Spaces correctly — and then silently fails to jump.
+	-->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+
+	<!--
+	  Deliberately absent:
+	  - App sandbox. The app resolves symbols in a private system framework and
+	    drives another process via Apple Events; neither is possible sandboxed.
+	  - disable-library-validation. Not needed: SkyLight is platform-signed by
+	    Apple, which library validation permits.
+	-->
+</dict>
+</plist>

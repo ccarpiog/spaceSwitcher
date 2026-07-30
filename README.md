@@ -1,0 +1,115 @@
+# spaceSwitcher
+
+A small macOS utility that lists your Mission Control Spaces and jumps to one.
+
+Press **⌃⌥Space** and a panel appears listing every Space, labelled with the apps
+on it. Pick one with the arrow keys, a number key, or the mouse.
+
+```
+╔══════════════════════════════════════╗
+║ Built-in Display                     ║
+║  1  Desktop 1          current       ║
+║     Code · Chrome · Outlook          ║
+║ ▶2  Desktop 2                        ║
+║     Code                             ║
+║ Studio Display                       ║
+║  3  Desktop 3          empty         ║
+╚══════════════════════════════════════╝
+   ↑↓ select   ⏎ jump   esc close   q quit
+```
+
+macOS gives desktops no names, so listing the apps on each one is what makes the
+panel usable — otherwise it would just read "Desktop 1, 2, 3". Fullscreen Spaces
+are named after the app filling them.
+
+## Install
+
+```bash
+./build.sh
+open build/spaceSwitcher.app
+```
+
+The app has no dock icon and no menu bar item — the hotkey is the whole
+interface. Press **q** in the panel to quit it.
+
+For a signed, notarized build suitable for copying to another Mac:
+
+```bash
+./scripts/release.sh
+```
+
+## Permissions
+
+On the first jump macOS will ask for permission to control **System Events**.
+Allow it — that is the mechanism the app uses to switch Spaces (see below). Until
+then the panel still opens and lists Spaces correctly; only jumping is blocked.
+
+Listing Spaces needs no permission at all.
+
+## Keys
+
+| Key | Action |
+| --- | --- |
+| `⌃⌥Space` | open or close the panel |
+| `↑` `↓` | move the highlight |
+| `1`–`9` | jump straight to that Space |
+| `⏎` | jump to the highlighted Space |
+| `esc` | close without jumping |
+| `q` | quit the app |
+
+The panel can also be opened from a script, Shortcuts, Alfred or Raycast:
+
+```bash
+notifyutil -p cc.carpio.spaceSwitcher.toggle
+```
+
+## Languages
+
+English and Spanish, following the system language. Adding another is a matter of
+copying `Resources/en.lproj/Localizable.strings` to a new `<lang>.lproj`
+directory and translating it — `build.sh` bundles every `.lproj` it finds, and no
+code changes are needed.
+
+## How it works, and why it works that way
+
+There is no public API for Spaces. Everything here rests on empirical testing
+against macOS 27, because most of the obvious approaches fail — several of them
+*silently*, which is worse. The full findings are in [CLAUDE.md](CLAUDE.md); the
+short version:
+
+**Reading** the Spaces layout uses the private SkyLight framework
+(`CGSCopyManagedDisplaySpaces` and friends), resolved with `dlsym` because the
+framework exists only inside the dyld shared cache. This needs no permission and
+no SIP change.
+
+**Jumping** is the awkward part:
+
+- `CGSManagedDisplaySetCurrentSpace`, the private call that looks like the right
+  answer, updates WindowServer's bookkeeping without driving the compositor. The
+  result is the target Space's windows being drawn onto the Space still on
+  screen. It also makes `CGSGetActiveSpace` report success, so it is easy to
+  believe it worked. **Not used.**
+- Synthesised `CGEvent` key presses never reach the WindowServer hotkey matcher —
+  tested with every event source and with explicit modifier key events, with
+  Accessibility granted. A silent no-op. **Not used.**
+- Asking **System Events** to press `⌃←`/`⌃→` performs a real, animated,
+  reliable transition. **This is what the app does.** Navigation is relative, so
+  the app computes how many steps away the target is from SkyLight's ordering,
+  steps that far, and confirms arrival by polling `CGSGetActiveSpace`.
+
+Because this depends on private API, a future macOS can break it. Symbols are
+resolved defensively: if they disappear, the panel says so instead of
+misbehaving.
+
+## Caveats
+
+- Space ids are not stable across reboots or when Spaces are added and removed,
+  so nothing is persisted — the list is rebuilt every time the panel opens.
+- Relative navigation means a distant Space takes several animated steps. With
+  the handful of Spaces most setups have, this is not noticeable. macOS's own
+  "switch to desktop N" shortcuts, which would allow a single jump, are disabled
+  by default and would have to be enabled by hand in System Settings.
+- On a multi-display setup with "Displays have separate Spaces" enabled, jumping
+  to a Space on another display warps the mouse cursor there first, because
+  relative navigation applies to whichever display has focus.
+- Not sandboxed, so it can never be distributed on the Mac App Store.
