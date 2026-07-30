@@ -150,5 +150,6 @@ differently from `/Applications`; if `status` looks wrong, check that first.
 
 ## Git state
 
-- Phase 1 committed on `main`; see the commit log for the SHA. Push result and
-  tree state are recorded with each phase above.
+- Phase 1: commit `c62bcf5` on `main`, pushed to `origin` successfully
+  (`7be5f65..c62bcf5`). Tree clean at that point.
+- Base before this work: `7be5f65`.
