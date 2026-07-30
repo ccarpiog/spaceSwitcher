@@ -114,6 +114,21 @@ list and relative navigation applies to the display that currently has focus.
 To target another display, the cursor is warped there first
 (`CGWarpMouseCursorPosition`).
 
+**Every display has its own current Space**, reported per display as
+`"Current Space"` in `CGSCopyManagedDisplaySpaces`. This is *not* the same as the
+globally active Space from `CGSGetActiveSpace` — only one display holds that.
+Relative navigation must be computed from the target display's own current Space:
+using the global one looks up a Space that is not in that display's list at all,
+so every jump to a non-focused display aborts silently. The same applies to
+verifying arrival afterwards.
+
+### Do not preselect the active Space
+
+The panel highlights the Space *after* the active one. Highlighting the active
+Space makes the most natural gesture — open the panel, press Return — close the
+panel and change nothing, which reads as a broken jump rather than as the no-op
+it is.
+
 ## Distribution
 
 The app must be **non-sandboxed** (private framework + Apple Events). It can

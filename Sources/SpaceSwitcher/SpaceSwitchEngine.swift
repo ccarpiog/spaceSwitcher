@@ -147,16 +147,24 @@ final class SpaceSwitchEngine {
             // display makes it the one that moves.
             self.focusDisplayIfNeeded(display)
 
-            // The starting index has to be read *after* the warp, because the
-            // active Space is now the one on the target display.
-            let currentID = self.bridge.activeSpaceID()
-            guard let currentIndex = display.spaces.firstIndex(where: { $0.id == currentID })
+            // Navigation starts from the Space showing on the *target* display, not
+            // from the globally active one. When the target is on another display
+            // those differ, and using the global value would look up a Space that
+            // is not in this display's list at all, aborting the jump.
+            guard let currentIndex = display.spaces
+                .firstIndex(where: { $0.id == display.currentSpaceID })
             else {
                 DispatchQueue.main.async { completion(.failure(.spaceNotFound)) }
                 return
             }
 
             let delta = targetIndex - currentIndex
+            // Nothing to walk: warping the cursor above already moved focus to the
+            // target display, and the wanted Space is the one it is showing.
+            if delta == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+                return
+            }
             let keyCode = delta > 0
                 ? SpaceSwitchEngine.rightArrowKeyCode
                 : SpaceSwitchEngine.leftArrowKeyCode
@@ -164,7 +172,8 @@ final class SpaceSwitchEngine {
             // Walk one Space at a time, waiting for each transition to settle.
             // Stepping blindly would drop presses during the animation.
             for _ in 0..<abs(delta) {
-                let before = self.bridge.activeSpaceID()
+                let before = self.bridge.currentSpace(onDisplay: display.id)
+                    ?? self.bridge.activeSpaceID()
                 let error = self.sendControlKey(keyCode)
                 if error != 0 {
                     // Only an explicit refusal is reported as such; any other
@@ -175,10 +184,11 @@ final class SpaceSwitchEngine {
                     DispatchQueue.main.async { completion(.failure(failure)) }
                     return
                 }
-                self.waitForSpaceChange(from: before)
+                self.waitForSpaceChange(from: before, onDisplay: display.id)
             } // End of the loop stepping one Space at a time toward the target
 
-            let arrived = self.bridge.activeSpaceID()
+            let arrived = self.bridge.currentSpace(onDisplay: display.id)
+                ?? self.bridge.activeSpaceID()
             DispatchQueue.main.async {
                 if arrived == space.id {
                     completion(.success(()))
@@ -212,18 +222,20 @@ final class SpaceSwitchEngine {
         return 0
     } // End of sendControlKey(_:)
 
-    /// Blocks until the active Space differs from `from`, or the timeout expires.
+    /// Blocks until the Space showing on `displayID` differs from `previous`, or
+    /// the timeout expires.
     ///
-    /// Polling `CGSGetActiveSpace` is legitimate here: the transition is being
-    /// driven by a real Dock-level switch, so the value reflects something the
-    /// compositor is actually doing.
-    private func waitForSpaceChange(from previous: UInt64) {
+    /// Polling is legitimate here: the transition is driven by a real Dock-level
+    /// switch, so the value reflects something the compositor is actually doing —
+    /// unlike the private setter, whose bookkeeping updates mean nothing.
+    private func waitForSpaceChange(from previous: UInt64, onDisplay displayID: String) {
         let deadline = Date().addingTimeInterval(SpaceSwitchEngine.arrivalTimeout)
         while Date() < deadline {
-            if bridge.activeSpaceID() != previous { return }
+            let now = bridge.currentSpace(onDisplay: displayID) ?? bridge.activeSpaceID()
+            if now != previous { return }
             Thread.sleep(forTimeInterval: SpaceSwitchEngine.pollInterval)
         }
-    }
+    } // End of waitForSpaceChange(from:onDisplay:)
 
     /// Moves the cursor onto `display` when the active Space lives elsewhere.
     ///

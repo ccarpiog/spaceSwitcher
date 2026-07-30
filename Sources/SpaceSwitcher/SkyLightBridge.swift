@@ -95,6 +95,21 @@ final class SkyLightBridge {
         return raw
     }
 
+    /// The Space currently showing on one specific display, read fresh.
+    ///
+    /// Needed because `activeSpaceID()` reports the single globally active Space,
+    /// which is the wrong thing to check when a jump targets a display that does
+    /// not currently have focus.
+    func currentSpace(onDisplay displayID: String) -> UInt64? {
+        for display in managedDisplaySpaces() {
+            guard display["Display Identifier"] as? String == displayID,
+                  let current = display["Current Space"] as? [String: Any]
+            else { continue }
+            return current["ManagedSpaceID"] as? UInt64 ?? current["id64"] as? UInt64
+        }
+        return nil
+    }
+
     /// The Spaces a given window occupies. A window on more than one Space is
     /// sticky (assigned to "all desktops"), which is why such windows are
     /// ignored when labelling Spaces — they say nothing distinguishing.

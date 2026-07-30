@@ -59,6 +59,10 @@ selecting one is what triggers the permission prompt in the first place.
 | `esc` | close without jumping |
 | `q` | quit the app |
 
+Opening the panel preselects the **next** Space rather than the one you are on,
+so pressing `⏎` straight away jumps somewhere — the same convention the app
+switcher follows. The Space you are currently on is marked `current`.
+
 The panel can also be opened from a script, Shortcuts, Alfred or Raycast:
 
 ```bash

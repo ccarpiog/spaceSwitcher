@@ -100,7 +100,7 @@ final class SwitcherController {
 
         model.fatalMessage = nil
         model.displays = enumerator.enumerate()
-        model.selectActiveSpace()
+        model.selectDefault()
 
         // Only an outright refusal is worth a warning. `.notDetermined` just means
         // the app has not asked yet, and the prompt will appear on the first jump —

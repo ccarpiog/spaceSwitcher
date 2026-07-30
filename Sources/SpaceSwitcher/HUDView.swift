@@ -49,13 +49,25 @@ final class HUDViewModel: ObservableObject {
         selection = min(max(selection + offset, 0), count - 1)
     }
 
-    /// Points the highlight at the Space currently on screen, so pressing the
-    /// hotkey and immediately pressing Return is a no-op rather than a surprise.
-    func selectActiveSpace() {
-        if let index = rows.firstIndex(where: { $0.space.isActive }) {
-            selection = index
+    /// Points the highlight at the Space *after* the one currently on screen,
+    /// wrapping around at the end.
+    ///
+    /// Highlighting the active Space instead would make the most natural gesture —
+    /// open the panel, press Return — do nothing at all: the panel would close and
+    /// the user would stay exactly where they were, looking like a broken jump.
+    /// This matches the app switcher, which preselects the next item rather than
+    /// the current one. The "current" badge still shows where you are.
+    func selectDefault() {
+        guard !rows.isEmpty else {
+            selection = 0
+            return
         }
-    }
+        if let activeIndex = rows.firstIndex(where: { $0.space.isActive }) {
+            selection = (activeIndex + 1) % rows.count
+        } else {
+            selection = 0
+        }
+    } // End of selectDefault()
 }
 
 /// The HUD's contents: a list of Spaces with the apps on each, plus a key hint bar.

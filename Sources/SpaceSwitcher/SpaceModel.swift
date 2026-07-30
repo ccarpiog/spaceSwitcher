@@ -60,6 +60,14 @@ struct DisplaySpaces: Identifiable {
     /// Human-readable display name, e.g. "Built-in Retina Display".
     let name: String
     let spaces: [Space]
+    /// The Space currently showing *on this display*.
+    ///
+    /// Distinct from the globally active Space: with "Displays have separate
+    /// Spaces" enabled every display has its own current Space, and only one of
+    /// them is the globally active one. Relative navigation on this display starts
+    /// from here, so using the global active Space instead makes every jump to a
+    /// non-focused display fail.
+    let currentSpaceID: UInt64
 }
 
 /// Builds the Space list by combining SkyLight's layout with the window list.
@@ -102,11 +110,19 @@ struct SpaceEnumerator {
                 )
             }
 
+            // SkyLight reports each display's own current Space separately from the
+            // globally active one. Falling back to the first Space keeps a jump
+            // possible even if the key is ever missing.
+            let currentOnDisplay = (display["Current Space"] as? [String: Any])
+                .flatMap { $0["ManagedSpaceID"] as? UInt64 ?? $0["id64"] as? UInt64 }
+                ?? spaces.first?.id ?? 0
+
             return DisplaySpaces(
                 id: displayID,
                 name: displayNames[displayID] ?? NSLocalizedString(
                     "display.unknown", comment: "Fallback name for an unidentified display"),
-                spaces: spaces
+                spaces: spaces,
+                currentSpaceID: currentOnDisplay
             )
         } // End of the map over displays, turning raw SkyLight dictionaries into DisplaySpaces
     } // End of enumerate()
